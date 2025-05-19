@@ -1,328 +1,41 @@
 /*
  Created by meir on 30/11/2021.
 */
+
 #include "../include/useful_functions.h"
-char * PIECES1[13] = {" " , "\u265E", "\u265C", "\u265B", "\u265A", "\u265F", "\u265D", "\u2658", "\u2656", "\u2655", "\u2654", "\u2659", "\u2657"};
 
-char is_attacked_by_black(board *the_board, char square) {
-    char piece;
-    int i = 0;
-    /* Check danger from columns and rows: */
-    while (move_up(square + i * UP, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP);
-    if (piece ==  black_queen || piece == black_rook)
-        return 1;
 
-    i=0;
-    while (move_down(square + i * DOWN, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN);
-    if (piece ==  black_queen || piece == black_rook)
-        return 1;
-    
-    i=0;
-    while (move_right(square + i * RIGHT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * RIGHT);
-    if (piece ==  black_queen || piece == black_rook)
-        return 1;
-    
-    i=0;
-    while (move_left(square + i * LEFT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * LEFT);
-    if (piece ==  black_queen || piece == black_rook)
-        return 1;
-    
-    i=0;
-    /* Check danger form diagonals: */
-    while (move_up_right(square + i * UP_RIGHT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP_RIGHT);
-    if (piece ==  black_queen || piece == black_bishop)
-        return 1;
-    i=0;
 
-    while (move_up_left(square + i * UP_LEFT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP_LEFT);
-    if (piece ==  black_queen || piece == black_bishop)
-        return 1;
-    i=0;
-
-    while (move_down_right(square + i * DOWN_RIGHT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN_RIGHT);
-    if (piece ==  black_queen || piece == black_bishop)
-        return 1;
-    i=0;
-
-    while (move_down_left(square + i * DOWN_LEFT, the_board, WHITE))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN_LEFT);
-    if (piece == black_queen || piece == black_bishop)
-        return 1;
-    i=0;
-
-    /* Check danger from knights: */
-
-    /*knight up up right to eat*/
-    if (get_column(square) > 0 && get_row(square) > 1) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_DOWN_LEFT) == black_knight)
-            return 1;
+char get_direction_between_squares(char src_row, char src_col, char dest_row, char dest_col){
+    enum directions line_direction = -1;
+    if get_is_left_right_of(src_row, src_col, dest_row, dest_col) {
+        if (src_col < dest_col)
+            line_direction = RIGHT;
+        else
+            line_direction = LEFT;
     }
-
-    /*knight up up left to eat*/
-    if (get_column(square) < 7 && get_row(square) > 1) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_DOWN_RIGHT) == black_knight)
-            return 1;
+    else if get_is_up_right_down_left_of(src_row, src_col, dest_row, dest_col) {
+        if (src_row < dest_row)
+            line_direction = UP_RIGHT;
+        else
+            line_direction = DOWN_LEFT;
     }
-
-    /*knight up right right to eat*/
-    if (get_column(square) > 1 && get_row(square) > 0) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_LEFT_LEFT) == black_knight)
-            return 1;
+    else if get_is_up_left_down_right_of(src_row, src_col, dest_row, dest_col) {
+        if (src_row < dest_row)
+            line_direction = UP_LEFT;
+        else
+            line_direction = DOWN_RIGHT;
     }
-
-    /*knight up left left to eat*/
-    if (get_column(square) < 6 && get_row(square) > 0) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_RIGHT_RIGHT) == black_knight)
-            return 1;
-    }
-
-    /*knight down down right to eat*/
-    if (get_column(square) > 0 && get_row(square) < 6) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_UP_LEFT) == black_knight)
-            return 1;
-    }
-
-    /*knight down down left to eat*/
-    if (get_column(square) < 7 && get_row(square) < 6) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_UP_RIGHT) == black_knight)
-            return 1;
-    }
-
-    /*knight down right right to eat*/
-    if (get_column(square) > 1 && get_row(square) < 7) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_LEFT_LEFT) == black_knight)
-            return 1;
-    }
-
-    /*knight down left left to eat*/
-    if (get_column(square) < 6 && get_row(square) < 7) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_RIGHT_RIGHT) == black_knight)
-            return 1;
-    }
-
-
-    /* Check danger from pawns: */
-    if (move_up_right(square,the_board,WHITE) && get_piece_in_square(the_board, square + UP_RIGHT) == black_pawn)
-        return 1;
-    
-    if (move_up_left(square,the_board,WHITE) && get_piece_in_square(the_board, square + UP_LEFT) == black_pawn)
-        return 1;
-
-        /* Check danger from king: */
-    if (move_right(square,the_board,WHITE) && get_piece_in_square(the_board,square + RIGHT) == black_king)
-        return 1;
-
-    if (move_left(square,the_board,WHITE) && get_piece_in_square(the_board,square + LEFT) == black_king)
-        return 1;
-
-    if (move_up(square,the_board,WHITE) && get_piece_in_square(the_board,square + UP) == black_king)
-        return 1;
-
-    if (move_down(square,the_board,WHITE) && get_piece_in_square(the_board,square + DOWN) == black_king)
-        return 1;
-
-    if (move_up_right(square,the_board,WHITE) && get_piece_in_square(the_board,square + UP_RIGHT) == black_king)
-        return 1;
-
-    if (move_up_left(square,the_board,WHITE) && get_piece_in_square(the_board,square + UP_LEFT) == black_king)
-        return 1;
-
-    if (move_down_left(square,the_board,WHITE) && get_piece_in_square(the_board,square + DOWN_LEFT) == black_king)
-        return 1;
-
-    if (move_down_right(square,the_board,WHITE) && get_piece_in_square(the_board,square + DOWN_RIGHT) == black_king)
-        return 1;
-
-
-    return 0;
+    return line_direction;
 }
 
 
-char is_attacked_by_white(board *the_board, char square) {
-    char piece;
-    int i = 0;
-    /* Check danger from columns and rows: */
-    while (move_up(square + i * UP, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP);
-    if (piece ==  white_queen || piece == white_rook)
-        return 1;
+char * PIECES1[4] = {    "·",        // empty
+    "●", // black marble
+    "○", // white marble
+    "⬜" // OUT OF BOUNDS
+};
 
-    i=0;
-    while (move_down(square + i * DOWN, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN);
-    if (piece == white_queen || piece == white_rook)
-        return 1;
-    
-    i=0;
-    while (move_right(square + i * RIGHT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * RIGHT);
-    if (piece == white_queen || piece == white_rook)
-        return 1;
-    
-    i=0;
-    while (move_left(square + i * LEFT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * LEFT);
-    if (piece == white_queen || piece == white_rook)
-        return 1;
-    
-    i=0;
-    /* Check danger form diagonals: */
-    while (move_up_right(square + i * UP_RIGHT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP_RIGHT);
-    if (piece == white_queen || piece == white_bishop)
-        return 1;
-    i=0;
-
-    while (move_up_left(square + i * UP_LEFT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * UP_LEFT);
-    if (piece == white_queen || piece == white_bishop)
-        return 1;
-    i=0;
-
-    while (move_down_right(square + i * DOWN_RIGHT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN_RIGHT);
-    if (piece == white_queen || piece == white_bishop)
-        return 1;
-    i=0;
-
-    while (move_down_left(square + i * DOWN_LEFT, the_board, BLACK))
-        i++;
-    piece = get_piece_in_square(the_board, square + i * DOWN_LEFT);
-    if (piece == white_queen || piece == white_bishop)
-        return 1;
-    i=0;
-
-    /* Check danger from knights: */
-
-    /*knight up up right to eat*/
-    if (get_column(square) > 0 && get_row(square) > 1) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_DOWN_LEFT) == white_knight)
-            return 1;
-    }
-
-    /*knight up up left to eat*/
-    if (get_column(square) < 7 && get_row(square) > 1) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_DOWN_RIGHT) == white_knight)
-            return 1;
-    }
-
-    /*knight up right right to eat*/
-    if (get_column(square) > 1 && get_row(square) > 0) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_LEFT_LEFT) == white_knight)
-            return 1;
-    }
-
-    /*knight up left left to eat*/
-    if (get_column(square) < 6 && get_row(square) > 0) {
-        if (get_piece_in_square(the_board, square + KNIGHT_DOWN_RIGHT_RIGHT) == white_knight)
-            return 1;
-    }
-
-    /*knight down down right to eat*/
-    if (get_column(square) > 0 && get_row(square) < 6) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_UP_LEFT) == white_knight)
-            return 1;
-    }
-
-    /*knight down down left to eat*/
-    if (get_column(square) < 7 && get_row(square) < 6) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_UP_RIGHT) == white_knight)
-            return 1;
-    }
-
-    /*knight down right right to eat*/
-    if (get_column(square) > 1 && get_row(square) < 7) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_LEFT_LEFT) == white_knight)
-            return 1;
-    }
-
-    /*knight down left left to eat*/
-    if (get_column(square) < 6 && get_row(square) < 7) {
-        if (get_piece_in_square(the_board, square + KNIGHT_UP_RIGHT_RIGHT) == white_knight)
-            return 1;
-    }
-
-
-    /* Check danger from pawns: */
-    if (move_down_right(square,the_board,BLACK) && get_piece_in_square(the_board, square + DOWN_RIGHT) == white_pawn)
-        return 1;
-    
-    if (move_down_left(square,the_board,BLACK) && get_piece_in_square(the_board, square + DOWN_LEFT) == white_pawn)
-        return 1;
-
-        /* Check danger from king: */
-    if (move_right(square,the_board,BLACK) && get_piece_in_square(the_board,square + RIGHT) == white_king)
-        return 1;
-
-    if (move_left(square,the_board,BLACK) && get_piece_in_square(the_board,square + LEFT) == white_king)
-        return 1;
-
-    if (move_up(square,the_board,BLACK) && get_piece_in_square(the_board,square + UP) == white_king)
-        return 1;
-
-    if (move_down(square,the_board,BLACK) && get_piece_in_square(the_board,square + DOWN) == white_king)
-        return 1;
-
-    if (move_up_right(square,the_board,BLACK) && get_piece_in_square(the_board,square + UP_RIGHT) == white_king)
-        return 1;
-
-    if (move_up_left(square,the_board,BLACK) && get_piece_in_square(the_board,square + UP_LEFT) == white_king)
-        return 1;
-
-    if (move_down_left(square,the_board,BLACK) && get_piece_in_square(the_board,square + DOWN_LEFT) == white_king)
-        return 1;
-
-    if (move_down_right(square,the_board,BLACK) && get_piece_in_square(the_board,square + DOWN_RIGHT) == white_king)
-        return 1;
-
-    return 0;
-}
-
-
-char find_king_square(board *the_board, char color){
-    int i = 0;
-    char piece = 0; 
-    if (color) {
-        piece = white_king;
-        if (get_piece_in_square(the_board,4) == white_king)
-            return 4;
-    }
-    else {
-        piece = black_king;
-        if (get_piece_in_square(the_board,60) == black_king)
-            return 60;
-    }
-    while (get_piece_in_square(the_board,i) != piece && i < NUMBER_OF_SQUARES) 
-        i++;
-    if (i == NUMBER_OF_SQUARES) {
-        //printf("Error: King not found!\n");
-        //print_board(the_board);
-    }
-        
-    return i;
-}
 
 char is_in_array(char *array, char value){
     int i;
@@ -334,22 +47,7 @@ char is_in_array(char *array, char value){
 }
 
 char compare_boards(board *board1, board *board2){
-    int i;
-    for (i = 0; i < NUMBER_OF_SQUARES; i++) {
-        if (get_piece_in_square(board1,i) != get_piece_in_square(board2,i))
-            return 0;
-    }
-    if (board1->en_passant_pawn != board2->en_passant_pawn)
-        return 0;
-    if (board1->can_white_castle_short != board2->can_white_castle_short)
-        return 0;
-    if (board1->can_white_castle_long != board2->can_white_castle_long)
-        return 0;
-    if (board1->can_black_castle_short != board2->can_black_castle_short)
-        return 0;
-    if (board1->can_black_castle_long != board2->can_black_castle_long)
-        return 0;
-    return 1;
+    return memcmp(board1,board2,sizeof(board)) == 0;
 }
 
 void copy_boards(board *board1, board *board2){
@@ -357,125 +55,86 @@ void copy_boards(board *board1, board *board2){
 }
 
 void print_move(move the_move){
-    printf("%c%d%c%d",get_column(get_src_square(the_move)) + 'a',get_row(get_src_square(the_move)) + 1,get_column(get_dst_square(the_move)) + 'a',get_row(get_dst_square(the_move)) + 1);
+    char src_row = get_src_row(the_move), src_col = get_src_col(the_move);
+    char end_of_line_row = get_end_of_line_row(the_move), end_of_line_col = get_end_of_line_col(the_move);
+    enum directions direction  = get_direction(the_move);  
+    char *direction_str;
+    switch (direction) {
+        case LEFT: direction_str = "LEFT"; break;
+        case UP_LEFT: direction_str = "UP_LEFT"; break;
+        case UP_RIGHT: direction_str = "UP_RIGHT"; break;
+        case RIGHT: direction_str = "RIGHT"; break;
+        case DOWN_RIGHT: direction_str = "DOWN_RIGHT"; break;
+        case DOWN_LEFT: direction_str = "DOWN_LEFT"; break;
+        default: direction_str = "UNKNOWN"; break;
+    }
+    if (get_move_type(the_move) == ASIDE) {
+        printf("Move: (%d,%d)(%d,%d) %s \n", src_row, src_col, end_of_line_row, end_of_line_col, direction_str);
+    } else {
+        printf("Move: (%d,%d) %s\n", src_row, src_col, direction_str);
+    }
+    ;}
+
+
+
+const char row_labels[] = "abcdefghi";
+const char row_lensgth[] = {5,6,7,8,9,8,7,6,5}; // Length of each row in the hexagonal board
+
+// Converts axial (x, y) to a string like "D4"
+const char* coord_to_label(int x, int y) {
+    static char label[4]; // Enough for letter + number + null
+
+    char letter = row_labels[x + RADIUS - 1]; // Convert x to letter
+    char number = y + RADIUS + '0'; // Convert y to number
+    if (x<0)
+        number += x;
+    label[0] = letter;
+    label[1] = number;
+    label[2] = '\0'; // Null-terminate the string
+    return label;
 }
 
-void print_line(){
-    int z;
-    /*Print a row of lines to separate.*/
-    printf("  ");
-    for(z = 0; z < 8; z++){
-        printf("+----");
+char* label_to_coord(char* label) {
+    for (int k1 = -RADIUS + 1; k1 < RADIUS; k1++){
+        for (int k2 = -RADIUS + 1; k2 < RADIUS; k2++){
+            if (strcmp(label, coord_to_label(-k1,-k2)) == 0)
+                return (char[2]){k1, k2};
+        }
     }
-    printf("+\n");
 }
 
 void print_board(board *the_board){
-    int i, x, square_in_line, first_square_in_line, line, piece;
-    /*
-    Line - current line number.
-    First_square_in_line - number of the first square in the 'Line'
-    Square_in_line - number of the column in the 'current_line'
-    Piece - the peice in the 'current square'
-    i, x - for loop var
-    */
-    print_line();
-    /*First for returns the line to print from line 8 to line 1*/
-    for(line = NUMBER_OF_ROWS; line > 0; line--){
-        first_square_in_line = (line - 1) * NUMBER_OF_ROWS;
-        printf("%d ",line);
-        /*Second for prints the piece in every square of the current line from the left to the right.*/ 
-        for(square_in_line = 0; square_in_line < NUMBER_OF_COLUMNS; square_in_line++){
-            piece = get_piece_in_square(the_board, first_square_in_line + square_in_line);
-            printf("| %s  ", PIECES1[piece]);
-        }
-        printf("|\n");
-        print_line();
-    }
-    /*Print letters on the bottem.*/
-    for(i=0; i < NUMBER_OF_COLUMNS; i++){
-        /*Print enough spaces for the letter to be in the middle.*/
-        for(x = 0; x < 4; x++)
-            printf(" ");
-        /*print the letter from a to h*/
-        printf("%c", i + 'a');
+    /* Printing the Abalone board */
+    for (int i = 0; i < 26; i++){
+        printf(" ");
     }
     printf("\n");
-}
-
-
-char check_white_long_castle(board *the_board){
-    move temp;
-    if(the_board->can_white_castle_long){
-        if(!is_attacked_by_black(the_board, DEAFULT_WHITE_KING_SQUARE)
-                && get_piece_in_square(the_board, DEAFULT_WHITE_KING_SQUARE + LEFT) == empty 
-                && get_piece_in_square(the_board, DEAFULT_WHITE_KING_SQUARE + LEFT*2) == empty 
-                && get_piece_in_square(the_board, DEAFULT_WHITE_KING_SQUARE + LEFT*3) == empty){
-            create_a_move(temp, DEAFULT_WHITE_KING_SQUARE, DEAFULT_WHITE_KING_SQUARE + LEFT, 0, 0, 0);
-            if(is_move_valid(the_board, temp, WHITE)){
-                    create_a_move(temp, DEAFULT_WHITE_KING_SQUARE, DEAFULT_WHITE_KING_SQUARE + LEFT*2, 0, 1, 0);
-                    if(is_move_valid(the_board, temp, WHITE)){
-                        return 1;
-                    }
-                }
+    printf("          5 4 3 2 1\n");
+    for (int i = 0; i < 2*RADIUS-1; i++){
+        /* print ' ' row_lens[i] times: */
+        for (int j = 0; j < 13-row_lensgth[i]; j++){
+            printf(" ");
         }
-    }
-    return 0;
-}
-
-char check_white_short_castle(board *the_board){
-    move temp;
-    if(the_board->can_white_castle_short){
-        if(!is_attacked_by_black(the_board, DEAFULT_WHITE_KING_SQUARE)
-                && get_piece_in_square(the_board, DEAFULT_WHITE_KING_SQUARE + RIGHT) == empty
-                && get_piece_in_square(the_board, DEAFULT_WHITE_KING_SQUARE + RIGHT*2) == empty){
-            create_a_move(temp, DEAFULT_WHITE_KING_SQUARE, DEAFULT_WHITE_KING_SQUARE + RIGHT, 0, 0, 0);
-            if(is_move_valid(the_board, temp, WHITE)){
-                    create_a_move(temp, DEAFULT_WHITE_KING_SQUARE, DEAFULT_WHITE_KING_SQUARE + RIGHT*2, 0, 0, 1);
-                    if(is_move_valid(the_board, temp, WHITE)){
-                        return 1;
-                    }
-                }
+        printf("%c ", row_labels[i]);
+        for (int j = row_lensgth[i]; j>=1; j--){
+            char lable[4];
+            lable[0] = row_labels[i];
+            lable[1] = j + '0';
+            lable[2] = '\0';
+            /* Now we want to find the marb that gives us the label */
+            char cord[2]; 
+            memcpy(cord, label_to_coord(lable), 2);
+            printf("%s ", PIECES1[go_to_square(the_board, cord[0],cord[1])]);
         }
-    }
-    return 0;
-}
-
-char check_black_long_castle(board *the_board){
-    move temp;
-    if(the_board->can_black_castle_long){
-        if(!is_attacked_by_white(the_board, DEAFULT_BLACK_KING_SQUARE)
-                && get_piece_in_square(the_board, DEAFULT_BLACK_KING_SQUARE + LEFT) == empty
-                && get_piece_in_square(the_board, DEAFULT_BLACK_KING_SQUARE + LEFT * 2) == empty
-                && get_piece_in_square(the_board, DEAFULT_BLACK_KING_SQUARE + LEFT * 3) == empty){
-            create_a_move(temp, DEAFULT_BLACK_KING_SQUARE, DEAFULT_BLACK_KING_SQUARE + LEFT, 0, 0, 0);
-            if(is_move_valid(the_board, temp, BLACK)){
-                create_a_move(temp, DEAFULT_BLACK_KING_SQUARE, DEAFULT_BLACK_KING_SQUARE + LEFT * 2, 0, 1, 0);
-                if(is_move_valid(the_board, temp, BLACK)){
-                    return 1;
-                }
-            }
+        for (int j = 0; j < 13-row_lensgth[i]; j++){
+            printf(" ");
         }
+        printf("\n");
     }
-    return 0;
-}
-
-char check_black_short_castle(board *the_board){
-    move temp;
-    if(the_board->can_black_castle_short){
-        if(!is_attacked_by_white(the_board, DEAFULT_BLACK_KING_SQUARE)
-                && get_piece_in_square(the_board, DEAFULT_BLACK_KING_SQUARE + RIGHT) == empty
-                && get_piece_in_square(the_board, DEAFULT_BLACK_KING_SQUARE + RIGHT*2) == empty){
-            create_a_move(temp, DEAFULT_BLACK_KING_SQUARE, DEAFULT_BLACK_KING_SQUARE + RIGHT, 0, 0, 0);
-            if(is_move_valid(the_board, temp, BLACK)){
-                    create_a_move(temp, DEAFULT_BLACK_KING_SQUARE, DEAFULT_BLACK_KING_SQUARE + RIGHT*2, 0, 0, 1);
-                    if(is_move_valid(the_board, temp, BLACK)){
-                        return 1;
-                    }
-                }
-        }
+    for (int i = 0; i < 26; i++){
+        printf(" ");
     }
-    return 0;
+    printf("\n");
 }
 
 char *strrev(char *str)
@@ -494,120 +153,72 @@ char *strrev(char *str)
 }
 
 irreversible_move_info get_irrev_move_info(board *b, move m) {
-    char src, dst, piece, piece_taken, en_passant_pawn = b->en_passant_pawn;
+    if (get_move_type(m) == ASIDE)
+        return 0;
+    char src_row, src_col, dst_row, dst_col, direction, no_pushed = 1;
     irreversible_move_info inf;
-    if (b->whose_turn == WHITE) {
-            src = get_src_square(m);
-            dst = get_dst_square(m);
-            piece = get_piece_in_square(b,src);
-            piece_taken = get_piece_in_square(b,dst);
-            if (piece == white_pawn && piece_taken == 0 && dst != src + UP && dst != src + UP + UP) { /* En passant: */
-                create_a_irrev_move_info(inf, piece_taken, 0, 1, en_passant_pawn, b->can_white_castle_short, b->can_white_castle_long, b->can_black_castle_short, b->can_black_castle_long);
-            }
-            else {
-                create_a_irrev_move_info(inf, piece_taken, ((piece == white_pawn && 56 <= dst) ? 1 : 0), 0, en_passant_pawn, b->can_white_castle_short, b->can_white_castle_long, b->can_black_castle_short, b->can_black_castle_long);
-            }
-        }
-    if (b->whose_turn == BLACK) {
-        src = get_src_square(m);
-        dst = get_dst_square(m);
-        piece = get_piece_in_square(b,src);
-        piece_taken = get_piece_in_square(b,dst);
-        if (piece == black_pawn && piece_taken == 0 && dst != src + DOWN && dst != src + DOWN + DOWN) { /* En passant: */
-            create_a_irrev_move_info(inf, piece_taken, 0, 1, en_passant_pawn, b->can_white_castle_short, b->can_white_castle_long, b->can_black_castle_short, b->can_black_castle_long);
-        }
-        else {
-            create_a_irrev_move_info(inf, piece_taken, ((piece == black_pawn && dst <= 7) ? 1 : 0), 0, en_passant_pawn, b->can_white_castle_short, b->can_white_castle_long, b->can_black_castle_short, b->can_black_castle_long);
-        }
+    src_row = get_src_row(m), src_col = get_src_col(m);
+    direction = get_direction(m);
+    for (char i = 1; ; i++) {
+        char marb = get_marb_in_direction(b, src_row, src_col, direction, i);
+        if (marb == empty || marb == -1)
+            break;
+        else 
+            no_pushed++;
     }
+    create_an_irrev_move_info(inf, no_pushed);
     return inf;
 }
 
 /* Unmake move for games: */
 void unmake_move_in_game(game *the_game, move m, irreversible_move_info inf) {
     unmake_move_in_board(the_game->current_position, m, inf);
-    the_game->moves[the_game->number_of_moves-1] = 0;
-    the_game->number_of_moves--;
+    the_game->moves[the_game->number_of_moves_in_game-1] = 0;
+    the_game->number_of_moves_in_game--;
 }
 
 /* Unmake move for boards: */
 void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) {
-    char src = get_src_square(m);
-    char dst = get_dst_square(m);
-    char piece = get_piece_in_square(the_board,dst);
-    if (the_board->whose_turn == WHITE) {
-        the_board->whose_turn = BLACK;
-        if (piece == black_king) {
-            if (dst == 62 && src == 60) { /* The move was a short castle. */
-                change_the_square(the_board, 60, black_king);
-                change_the_square(the_board, 63, black_rook);
-                change_the_square(the_board, 62, empty);
-                change_the_square(the_board, 61, empty);
-            }
-            else if (dst == 58 && src == 60) { /* The move was a short castle. */
-                change_the_square(the_board, 60, black_king);
-                change_the_square(the_board, 56, black_rook);
-                change_the_square(the_board, 58, empty);
-                change_the_square(the_board, 59, empty);
-            }
-            else {
-                change_the_square(the_board, src, black_king);
-                change_the_square(the_board, dst, get_piece_taken(inf));
-            }
-        }
-        else if (get_is_en_passant(inf) != 0) { /* The move was an en passant. */
-            change_the_square(the_board,dst+UP,white_pawn);
-            change_the_square(the_board, src, black_pawn);
-            change_the_square(the_board, dst, empty);
-        }
-        else if (get_is_promoted(inf) == 1) {
-            change_the_square(the_board, src, black_pawn);
-            change_the_square(the_board, dst, get_piece_taken(inf));
-        }
-        else {
-            change_the_square(the_board, src, piece);
-            change_the_square(the_board, dst, get_piece_taken(inf));
+    if (get_move_type(m) == ASIDE) {
+        /* In this case just go backwards with all the marbs moved */
+        char src_row = get_src_row(m), src_col = get_src_col(m);
+        char end_of_line_row = get_end_of_line_row(m), end_of_line_col = get_end_of_line_col(m);
+        enum directions line_direction, direction = get_direction(m);
+        line_direction = get_direction_between_squares(src_row, src_col, end_of_line_row, end_of_line_col);
+        /* Now go over the line and make the move for all the marbles. */
+        char marb_row = src_row, marb_col = src_col;
+        while (1) {
+            change_the_square(the_board, marb_row, marb_col, get_enemy_marble(the_board->whose_turn + 1));
+            change_the_square_in_direction(the_board, marb_row, marb_col, direction, 1, empty);
+            if (marb_row == end_of_line_row && marb_col == end_of_line_col)
+                break;
+            get_new_cords_in_direction(marb_row, marb_col, line_direction, 1);
         }
     }
     else {
-        the_board->whose_turn = WHITE;
-        if (piece == white_king) {
-            if (dst == 6 && src == 4) { /* The move was a short castle. */
-                change_the_square(the_board, 4, white_king);
-                change_the_square(the_board, 7, white_rook);
-                change_the_square(the_board, 6, empty);
-                change_the_square(the_board, 5, empty);
-            }
-            else if (dst == 2 && src == 4) { /* The move was a short castle. */
-                change_the_square(the_board, 4, white_king);
-                change_the_square(the_board, 0, white_rook);
-                change_the_square(the_board, 2, empty);
-                change_the_square(the_board, 3, empty);
-            }
-            else {
-                change_the_square(the_board, src, white_king);
-                change_the_square(the_board, dst, get_piece_taken(inf));
-            }
+        /* In this case firstly go no_pushed times in the direction of the move, 
+        empty this square (if it is not out of bounds) and then move every marb backwards until we get to src */
+        char src_row = get_src_row(m), src_col = get_src_col(m);
+        enum directions direction = get_direction(m), backward_direction = get_backward_direction(direction);
+        char no_pushed = get_no_pushed(inf);
+        char marb_row = src_row, marb_col = src_col;
+        get_new_cords_in_direction(marb_row, marb_col, direction, no_pushed);
+        char prev = empty;
+        if (get_in_bounds(marb_row, marb_col) == 0) {
+            prev = the_board->whose_turn? white_marble : black_marble;
+            get_new_cords_in_direction(marb_row, marb_col, backward_direction, 1);
         }
-        else if (get_is_en_passant(inf) != 0) { /* The move was an en passant. */
-            change_the_square(the_board,dst+DOWN,black_pawn);
-            change_the_square(the_board, src, white_pawn);
-            change_the_square(the_board, dst, empty);
+        while (1) {
+            char temp = go_to_square(the_board, marb_row, marb_col);
+            change_the_square(the_board, marb_row, marb_col, prev);
+            prev = temp;
+            if (marb_row == src_row && marb_col == src_col) 
+                break;
+            get_new_cords_in_direction(marb_row, marb_col, backward_direction, 1);
         }
-        else if (get_is_promoted(inf) == 1) {
-            change_the_square(the_board, src, white_pawn);
-            change_the_square(the_board, dst, get_piece_taken(inf));
-        }
-        else {
-            change_the_square(the_board, src, piece);
-            change_the_square(the_board, dst, get_piece_taken(inf));
-        }
+
     }
-    the_board->en_passant_pawn = get_en_passant_pawn_last_move(inf);
-    the_board->can_white_castle_short = get_could_white_short_castle_last_move(inf);
-    the_board->can_white_castle_long = get_could_white_long_castle_last_move(inf);
-    the_board->can_black_castle_short = get_could_black_short_castle_last_move(inf);
-    the_board->can_black_castle_long = get_could_black_long_castle_last_move(inf);
+    the_board->whose_turn = !the_board->whose_turn;
 }
 
 /* Check if the game is a draw by repetition: */
@@ -615,16 +226,13 @@ char check_repetition(game *the_game) {
     board temp = the_game->initial_position;
     int i;
     int number_of_repetitions = 0;
-    for (i = 0; i < the_game->number_of_moves; i++) {
-        if (temp.whose_turn == WHITE)
-            commit_a_move_for_white_in_position(&temp, the_game->moves[i]);
-        else 
-            commit_a_move_for_black_in_position(&temp, the_game->moves[i]);
+    for (i = 0; i < the_game->number_of_moves_in_game; i++) {
+        commit_a_move_in_board(&temp, the_game->moves[i]);
         if (compare_boards(&temp, the_game->current_position) == 1) {
             number_of_repetitions++;
         }
     }
-    if (number_of_repetitions >= 3) {
+    if (number_of_repetitions >= 2) {
         return 1;
     }
     else
@@ -647,4 +255,163 @@ void selection_sort_for_moves(move moves[MAX_POSSIBLE_MOVES / 2], int *values, i
     temp_move = moves[i];
     moves[i] = moves[max];
     moves[max] = temp_move;
+}
+
+char is_same_line(char *line1, char *line2) {
+    char r = line1[0], c = line1[1];
+    get_new_cords_in_direction(r, c, line1[2], line1[3] - 1);
+    if (r == line2[0] && c == line2[1] && line1[3] == line2[3]) {
+        return 1;
+    }
+    return 0;
+}
+
+int remove_line_duplicates(char (*arr)[4], int n) {
+    int write_index = 0;
+
+    for (int i = 0; i<n; ++i) {
+        int is_duplicate = 0;
+        for (int j = 0; j < write_index; ++j) {
+            if (is_same_line(arr[i], arr[j])) {
+                is_duplicate = 1;
+                break;
+            }
+        }
+        if (!is_duplicate) {
+            memcpy(arr[write_index], arr[i], sizeof(arr[i]));
+            write_index++;
+        }
+    }
+    arr[write_index][3] = END;
+    return write_index;  // new length
+}
+
+char is_lost(board *b, char color) {
+    char no_marb = 0;
+    for (int i = -RADIUS + 1; i < RADIUS; i++) {
+        for (int j = -RADIUS + 1; j < RADIUS; j++) {
+            char marb = get_marb_in_square(b, i, j);
+            if (marb == color + 1) {
+                no_marb++;
+            }
+        }
+    }
+    if (no_marb == 8)
+        return 1;
+    return 0;
+}
+
+char push_move_score(board *b, move m) {
+    char src_row = get_src_row(m), src_col = get_src_col(m);
+    enum directions d = get_direction(m);
+    /* Now just check if the line ends with an enemy marble */
+    irreversible_move_info inf = get_irrev_move_info(b, m);
+    char no_pushed = get_no_pushed(inf);
+    char marb_row = src_row, marb_col = src_col;
+    get_new_cords_in_direction(marb_row, marb_col, d, no_pushed - 1);
+    if (get_marb_in_square(b, marb_row, marb_col) == get_enemy_marble(b->whose_turn + 1)) {
+        char temp_row = marb_row, temp_col = marb_col;
+        get_new_cords_in_direction(temp_row, temp_col, d, 1);
+        if (!get_in_bounds(temp_row, temp_col)) {
+            return no_pushed + 4;
+        }
+        return no_pushed + 2;
+    }
+    return no_pushed;
+}
+
+double center_helping_score(board *b, move m) {
+    char src_row = get_src_row(m), src_col = get_src_col(m);
+    char start_src_dist = hex_distance(src_row, src_col, 0, 0);
+    char temp_row1 = src_row, temp_col1 = src_col;
+    char temp_row2, temp_col2;
+    get_new_cords_in_direction(temp_row1, temp_col1, get_direction(m), 1);
+    enum directions direction = get_direction(m);
+    /* Return sum of center score difference of start of the line and end of it */
+    int score = 0;
+    if (get_move_type(m) == ASIDE) {
+        enum directions line_direction = get_direction_between_squares(src_row, src_col, get_end_of_line_row(m), get_end_of_line_col(m));
+        while (1) {
+            temp_row2 = temp_row1, temp_col2 = temp_col1;
+            get_new_cords_in_direction(temp_row2, temp_col2, direction, 1);
+            score += RADIUS - hex_distance(temp_row2, temp_col2, 0, 0) - 1 -
+                        (RADIUS - hex_distance(temp_row1, temp_col1, 0, 0) - 1);
+            char temp = get_marb_in_square(b, temp_row1, temp_col1);
+            if (temp == empty || temp == -1)
+                break;
+            get_new_cords_in_direction(temp_row1, temp_col1, line_direction, 1);
+        }
+    }
+    else {
+        char marb_row = src_row, marb_col = src_col;
+        while (1) {
+            char temp = get_marb_in_direction(b, marb_row, marb_col, direction, 1);
+            score -= RADIUS - hex_distance(marb_row, marb_col, 0, 0) - 1;
+            get_new_cords_in_direction(marb_row, marb_col, direction, 1);
+            score += RADIUS - hex_distance(marb_row, marb_col, 0, 0) - 1;
+            if (temp == empty || temp == -1)
+                break;
+        }
+    }
+    return score;
+}
+
+double cohesion_helping_score(board *b, move m) {
+    char src_row = get_src_row(m), src_col = get_src_col(m);
+    char start_src_dist = hex_distance(src_row, src_col, 0, 0);
+    char temp_row1 = src_row, temp_col1 = src_col;
+    char temp_row2, temp_col2;
+    get_new_cords_in_direction(temp_row1, temp_col1, get_direction(m), 1);
+    char end_src_dist = hex_distance(temp_row1, temp_col1, 0, 0);
+    enum directions direction = get_direction(m);
+    char start_end_dist, end_end_dist;
+    /* Return sum of center score difference of start of the line and end of it */
+    int score = 0;
+    if (get_move_type(m) == ASIDE) {
+        enum directions line_direction = get_direction_between_squares(src_row, src_col, get_end_of_line_row(m), get_end_of_line_col(m));
+        while (1) {
+            temp_row2 = temp_row1, temp_col2 = temp_col1;
+            get_new_cords_in_direction(temp_row2, temp_col2, direction, 1);
+            score += get_no_neighbours(b, temp_row2, temp_col2, b->whose_turn) -
+                        get_no_neighbours(b, temp_row1, temp_col1, b->whose_turn);
+            char temp = get_marb_in_square(b, temp_row1, temp_col1);
+            if (temp == empty || temp == -1)
+                break;
+            get_new_cords_in_direction(temp_row1, temp_col1, line_direction, 1);
+        }
+    }
+    else {
+        char marb_row = src_row, marb_col = src_col;
+        enum directions direction = get_direction(m), backward_direction = get_backward_direction(direction);
+        while (1) {
+            char temp = get_marb_in_direction(b, marb_row, marb_col, direction, 1);
+            score -= get_no_neighbours(b, marb_row, marb_col, b->whose_turn);
+            get_new_cords_in_direction(marb_row, marb_col, direction, 1);
+            score += get_no_neighbours(b, marb_row, marb_col, b->whose_turn);
+            if (temp == empty || temp == -1)
+                break;
+        }
+    }
+    return score;
+}
+
+static int initializer = 0;
+double get_random_up_to_one() {
+    return 0;
+    initializer++;
+    srand(time(NULL) + initializer);
+    // Generate a random number between -1 and 1
+    double random = (double)rand() / RAND_MAX;
+    // Scale it to the range -1 to 1
+    random = random * 2 - 1;
+    return random / 100000.0;
+}
+
+char *my_strndup(const char *s, size_t n) {
+    size_t len = strnlen(s, n);           // Don't go past n
+    char *new_str = (char *)malloc(len + 1);
+    if (!new_str) return NULL;
+    memcpy(new_str, s, len);
+    new_str[len] = '\0';
+    return new_str;
 }

@@ -25,7 +25,11 @@
         "stdio.h": "c",
         "random": "c",
         "make_move.h": "c",
-        "limits": "c"
+        "limits": "c",
+        "cmath": "c",
+        "evaluation_try.h": "c",
+        "time.h": "c",
+        "syscall.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

@@ -9,7 +9,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/NepoChessTests",
+            "program": "${workspaceFolder}/bin/GnizabalonTests",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

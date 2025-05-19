@@ -1,216 +1,380 @@
 #include "../include/evaluation.h"
 
-/* Note: all values are in centipawns (pawn / 100) */
 
-int mg_value[6] = { 82, 337, 365, 477, 1025,  0}; /* The worth of the pieces in midgame */
-int eg_value[6] = { 94, 281, 297, 512,  936,  0}; /* The worth of the pieces in endgame */
+#include <stdlib.h>
+#include <math.h>
 
-/* piece/sq tables */
-/* values from Rofchade: http://www.talkchess.com/forum3/viewtopic.php?f=2&t=68311&start=19 */
+#define STARTING_MARBLES_WHITE 14
+#define STARTING_MARBLES_BLACK 14
 
-int mg_pawn_table[64] = {
-      0,   0,   0,   0,   0,   0,  0,   0,
-     98, 134,  61,  95,  68, 126, 34, -11,
-     -6,   7,  26,  31,  65,  56, 25, -20,
-    -14,  13,   6,  21,  23,  12, 17, -23,
-    -27,  -2,  -5,  12,  17,   6, 10, -25,
-    -26,  -4,  -4, -10,   3,   3, 33, -12,
-    -35,  -1, -20, -23, -15,  24, 38, -22,
-      0,   0,   0,   0,   0,   0,  0,   0,
+char evaluation_function_number = 0;
+
+
+#define POLY(x, a1, a2, a3, a4) \
+    (((x) >= 0) * (a1) + (a2) * (x) + ((x) >= 0) * (a3) * (x) * (x) + (a4) * (x) * (x) * (x))
+    
+
+
+double weights[7][4];
+
+
+/*
+1.194446206092834473e+00 8.374558687210083008e-01 1.539749056100845337e-01
+1.675892025232315063e-01 -1.717536449432373047e-01 -2.826795578002929688e-01
+8.011112809181213379e-01 -1.251622140407562256e-01 -2.794158160686492920e-01
+4.773312211036682129e-01 -1.776414215564727783e-01 -2.470646202564239502e-01
+3.367320209772535421e-42 8.113518108440690841e-43 -1.626907517081112619e-42
+3.721568286418914795e-01 7.216846346855163574e-01 -2.553943395614624023e-01
+2.146258950233459473e-01 3.442228436470031738e-01 6.158503890037536621e-01
+
+
+*/
+
+double poly_coefficients_1[7][4] = {
+    {1.194446206092834473e+00, 8.374558687210083008e-01, 1.539749056100845337e-01, 0}, 
+    {1.675892025232315063e-01, -1.717536449432373047e-01, -2.826795578002929688e-01, 0},
+    {8.011112809181213379e-01, -1.251622140407562256e-01, -2.794158160686492920e-01, 0},
+    {4.773312211036682129e-01, -1.776414215564727783e-01, -2.470646202564239502e-01, 0},
+    {3.367320209772535421e-42, 8.113518108440690841e-43, -1.626907517081112619e-42, 0},
+    {3.721568286418914795e-01, 7.216846346855163574e-01, -2.553943395614624023e-01, 0},
+    {2.146258950233459473e-01, 3.442228436470031738e-01, 6.158503890037536621e-01, 0}
+    };
+
+double poly_coefficients_2[7][4] = {
+    {0, 1.327386021614074707e+00, -6.866407394409179688e-01, 0}, 
+    {0, -1.408225595951080322e-01, -5.104897618293762207e-01, 0},
+    {0, 2.219095975160598755e-01, -2.922518849372863770e-01, 0},
+    {0, 1.886795461177825928e-01, -3.799577653408050537e-01, 0},
+    {0, 0, 0, 0},
+    {0, 6.940866708755493164e-01, -1.376750916242599487e-01, 0},
+    {0, 2.223298996686935425e-01, 7.425394654273986816e-01, 0}
+    };
+
+
+/* 
+-4.918685182929039001e-03
+1.377974003553390503e-01
+4.569528698921203613e-01
+3.710978329181671143e-01
+-1.936314218004032229e-41
+-1.455489825457334518e-02
+1.163885354995727539e+00
+
+*/
+double modus_weights[7] = {
+    -4.918685182929039001e-03,
+    1.377974003553390503e-01,
+    4.569528698921203613e-01,
+    3.710978329181671143e-01,
+    -1.936314218004032229e-41,
+    -1.455489825457334518e-02,
+    1.163885354995727539e+00
 };
 
-int eg_pawn_table[64] = {
-      0,   0,   0,   0,   0,   0,   0,   0,
-    178, 173, 158, 134, 147, 132, 165, 187,
-     94, 100,  85,  67,  56,  53,  82,  84,
-     32,  24,  13,   5,  -2,   4,  17,  17,
-     13,   9,  -3,  -7,  -7,  -8,   3,  -1,
-      4,   7,  -6,   1,   0,  -5,  -1,  -8,
-     13,   8,   8,  10,  13,   0,   2,  -7,
-      0,   0,   0,   0,   0,   0,   0,   0,
-};
 
-int mg_knight_table[64] = {
-    -167, -89, -34, -49,  61, -97, -15, -107,
-     -73, -41,  72,  36,  23,  62,   7,  -17,
-     -47,  60,  37,  65,  84, 129,  73,   44,
-      -9,  17,  19,  53,  37,  69,  18,   22,
-     -13,   4,  16,  13,  28,  19,  21,   -8,
-     -23,  -9,  12,  10,  19,  17,  25,  -16,
-     -29, -53, -12,  -3,  -1,  18, -14,  -19,
-    -105, -21, -58, -33, -17, -28, -19,  -23,
-};
+double weights_table_1[10][7] = {
+    {3,2,6,1.8,2,0,0},
+    {3.3,2,6,1.8,2,35,35},
+    {2.9,2,15,3,2,10,10},
+    {2.9,2,15,3,2,15,15},
+    {2.8,2.3,25,3,2,15,15},
+    {2.8,2.1,25,3,3,25,25},
+    {2.7,2.3,25,3,4,30,30},
+    {2.4,2.3,25,3,6,35,35},
+    {2.2,2.3,25,3,8,40,40},
+    {1.3,2.3,25,3,15,85,85},
+    };  
 
-int eg_knight_table[64] = {
-    -58, -38, -13, -28, -31, -27, -63, -99,
-    -25,  -8, -25,  -2,  -9, -25, -24, -52,
-    -24, -20,  10,   9,  -1,  -9, -19, -41,
-    -17,   3,  22,  22,  22,  11,   8, -18,
-    -18,  -6,  16,  25,  16,  17,   4, -18,
-    -23,  -3,  -1,  15,  10,  -3, -20, -22,
-    -42, -20, -10,  -5,  -2, -20, -23, -44,
-    -29, -51, -23, -15, -22, -18, -50, -64,
-};
 
-int mg_bishop_table[64] = {
-    -29,   4, -82, -37, -25, -42,   7,  -8,
-    -26,  16, -18, -13,  30,  59,  18, -47,
-    -16,  37,  43,  40,  35,  50,  37,  -2,
-     -4,   5,  19,  50,  37,  37,   7,  -2,
-     -6,  13,  13,  26,  34,  12,  10,   4,
-      0,  15,  15,  15,  14,  27,  18,  10,
-      4,  15,  16,   0,   7,  21,  33,   1,
-    -33,  -3, -14, -21, -13, -12, -39, -21,
-};
 
-int eg_bishop_table[64] = {
-    -14, -21, -11,  -8, -7,  -9, -17, -24,
-     -8,  -4,   7, -12, -3, -13,  -4, -14,
-      2,  -8,   0,  -1, -2,   6,   0,   4,
-     -3,   9,  12,   9, 14,  10,   3,   2,
-     -6,   3,  13,  19,  7,  10,  -3,  -9,
-    -12,  -3,   8,  10, 13,   3,  -7, -15,
-    -14, -18,  -7,  -1,  4,  -9, -15, -27,
-    -23,  -9, -23,  -5, -9, -16,  -5, -17,
-};
+// Clamp helper
+static inline double clamp(double x, double low, double high) {
+    if (x < low) return low;
+    if (x > high) return high;
+    return x;
+}
 
-int mg_rook_table[64] = {
-     32,  42,  32,  51, 63,  9,  31,  43,
-     27,  32,  58,  62, 80, 67,  26,  44,
-     -5,  19,  26,  36, 17, 45,  61,  16,
-    -24, -11,   7,  26, 24, 35,  -8, -20,
-    -36, -26, -12,  -1,  9, -7,   6, -23,
-    -45, -25, -16, -17,  3,  0,  -5, -33,
-    -44, -16, -20,  -9, -1, 11,  -6, -71,
-    -19, -13,   1,  17, 16,  7, -37, -26,
-};
+// Compute early, mid, late weights for a given modus in [0,1]
+void compute_phase_weights(double modus, double* w_early, double* w_mid, double* w_late) {
+    *w_early = clamp(1.0 - 2.0 * modus, 0.0, 1.0);
+    *w_mid   = clamp(1.0 - 2.0 * fabs(modus - 0.5), 0.0, 1.0);
+    *w_late  = clamp(2.0 * modus - 1.0, 0.0, 1.0);
+}
 
-int eg_rook_table[64] = {
-    13, 10, 18, 15, 12,  12,   8,   5,
-    11, 13, 13, 11, -3,   3,   8,   3,
-     7,  7,  7,  5,  4,  -3,  -5,  -3,
-     4,  3, 13,  1,  2,   1,  -1,   2,
-     3,  5,  8,  4, -5,  -6,  -8, -11,
-    -4,  0, -5, -1, -7, -12,  -8, -16,
-    -6, -6,  0,  2, -9,  -9, -11,  -3,
-    -9,  2,  3, -1, -5, -13,   4, -20,
-};
 
-int mg_queen_table[64] = {
-    -28,   0,  29,  12,  59,  44,  43,  45,
-    -24, -39,  -5,   1, -16,  57,  28,  54,
-    -13, -17,   7,   8,  29,  56,  47,  57,
-    -27, -27, -16, -16,  -1,  17,  -2,   1,
-     -9, -26,  -9, -10,  -2,  -4,   3,  -3,
-    -14,   2, -11,  -2,  -5,   2,  14,   5,
-    -35,  -8,  11,   2,   8,  15,  -3,   1,
-     -1, -18,  -9,  10, -15, -25, -31, -50,
-};
+char get_modus(double center_proximity, double cohesion) {
+    if (center_proximity < 0)
+        return 1;
+    else if (center_proximity < 5)
+        return 2;
+    else {
+        if (cohesion < 4)
+            return 3;
+        else if (cohesion < 10)
+            return 4;
+        else if (cohesion < 16)
+            return 5;
+        else if (cohesion < 22)
+            return 6;
+        else if (cohesion < 28)
+            return 7;
+        else if (cohesion < 34)
+            return 8;
+        else if (cohesion < 40)
+            return 9;
+        else {
+            return 10;
+        }
+    }
+}
 
-int eg_queen_table[64] = {
-     -9,  22,  22,  27,  27,  19,  10,  20,
-    -17,  20,  32,  41,  58,  25,  30,   0,
-    -20,   6,   9,  49,  47,  35,  19,   9,
-      3,  22,  24,  45,  57,  40,  57,  36,
-    -18,  28,  19,  47,  31,  34,  39,  23,
-    -16, -27,  15,   6,   9,  17,  10,   5,
-    -22, -23, -30, -16, -16, -23, -36, -32,
-    -33, -28, -22, -43,  -5, -32, -20, -41,
-};
+double evaluate_original(board* b, char color) {
+    /* We use these parameters to evaluate the board:
+        * 1. Center proximity
+        * 2. Cohesion
+        * 3. Break strong group
+        * 4. Strengthen group
+        * 5. Opponent's marbles removed
+        * 6. Self marbles removed (negative)
+        */
+    
+    double score = 0;
 
-int mg_king_table[64] = {
-    -65,  23,  16, -15, -56, -34,   2,  13,
-     29,  -1, -20,  -7,  -8,  -4, -38, -29,
-     -9,  24,   2, -16, -20,   6,  22, -22,
-    -17, -20, -12, -27, -30, -25, -14, -36,
-    -49,  -1, -27, -39, -46, -44, -33, -51,
-    -14, -14, -22, -46, -44, -30, -15, -27,
-      1,   7,  -8, -64, -43, -16,   9,   8,
-    -15,  36,  12, -54,   8, -28,  24,  14,
-};
+    /* Now we'll check the center proximity (we use hex_distance for distance) */
+    int white_marbles = 0;
+    int black_marbles = 0;
+    double proximity_score = 0;
+    double cohesion_score = 0;
+    double break_strong_group_score = 0;
+    double strengthen_group_score = 0;
+    double immediate_marb_capturing_danger_score = 0;
+    for (int i = -RADIUS + 1; i < RADIUS; i++) {
+        for (int j = -RADIUS + 1; j < RADIUS; j++) {
+            char marb = get_marb_in_square(b, i, j);
+            if (marb == white_marble) {
+                white_marbles++;
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score += RADIUS - dist - 1;
+                cohesion_score += get_no_neighbours(b, i, j, WHITE);
+                for (enum directions d = 0; d < 6; d++) {
+                    if (get_marb_in_direction(b, i, j, d, 1) == black_marble) {
+                        if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == black_marble) {
+                            break_strong_group_score ++;
+                        }
+                        else if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == white_marble) {
+                            strengthen_group_score ++;
+                        }
+                    }
+                }
+            }
+            else if (marb == black_marble) {
+                black_marbles++;
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score -= RADIUS - dist - 1;
+                cohesion_score -= get_no_neighbours(b, i, j, BLACK);
+                for (enum directions d = 0; d < 6; d++) {
+                    if (get_marb_in_direction(b, i, j, d, 1) == white_marble) {
+                        if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == white_marble) {
+                            break_strong_group_score -- ;
+                        }
+                        else if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == black_marble) {
+                            strengthen_group_score --;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (evaluation_function_number == 2) {
+        double MAX_ABS_VALUES[7] = {26., 52., 18., 21.,  0.,  6.,  6.};
+        score += POLY(proximity_score / MAX_ABS_VALUES[0], weights[0][0], weights[0][1], weights[0][2], weights[0][3]);
+        score += POLY(cohesion_score / MAX_ABS_VALUES[1], weights[1][0], weights[1][1], weights[1][2], weights[1][3]);
+        score += POLY(break_strong_group_score / MAX_ABS_VALUES[2], weights[2][0], weights[2][1], weights[2][2], weights[2][3]);
+        score += POLY(strengthen_group_score / MAX_ABS_VALUES[3], weights[3][0], weights[3][1], weights[3][2], weights[3][3]);
+        score += POLY((STARTING_MARBLES_BLACK - black_marbles) / MAX_ABS_VALUES[5], weights[5][0], weights[5][1], weights[5][2], weights[5][3]);
+        score -= POLY((STARTING_MARBLES_WHITE - white_marbles) / MAX_ABS_VALUES[6], weights[6][0], weights[6][1], weights[6][2], weights[6][3]);        
+    }
+    else if (evaluation_function_number == 1) {
+        double MAX_ABS_VALUES[7] = {26., 52., 18., 21.,  0.,  6.,  6.};
+        double modus = modus_weights[1] * abs(proximity_score) / MAX_ABS_VALUES[0] +
+                       modus_weights[2] * abs(cohesion_score) / MAX_ABS_VALUES[1] +
+                       modus_weights[3] * abs(break_strong_group_score) / MAX_ABS_VALUES[2] +
+                       modus_weights[4] * abs(strengthen_group_score) / MAX_ABS_VALUES[3] +
+                       modus_weights[5] * abs(STARTING_MARBLES_BLACK - black_marbles) / MAX_ABS_VALUES[6] -
+                       modus_weights[6] * abs(STARTING_MARBLES_WHITE - white_marbles) / MAX_ABS_VALUES[5];
+        if (modus < 0) modus = 0;
+        else if (modus > 1) modus = 1;
+        double w_early, w_mid, w_late;
+        compute_phase_weights(modus, &w_early, &w_mid, &w_late);
+        score += w_early * poly_coefficients_1[0][0] * (proximity_score / MAX_ABS_VALUES[0]) +
+                 w_mid * poly_coefficients_1[1][0] * (proximity_score / MAX_ABS_VALUES[0]) +
+                    w_late * poly_coefficients_1[2][0] * (proximity_score / MAX_ABS_VALUES[0]);
+        score += w_early * poly_coefficients_1[0][1] * (cohesion_score / MAX_ABS_VALUES[1]) +
+                    w_mid * poly_coefficients_1[1][1] * (cohesion_score / MAX_ABS_VALUES[1]) +
+                        w_late * poly_coefficients_1[2][1] * (cohesion_score / MAX_ABS_VALUES[1]);
+        score += w_early * poly_coefficients_1[0][2] * (break_strong_group_score / MAX_ABS_VALUES[2]) +
+                    w_mid * poly_coefficients_1[1][2] * (break_strong_group_score / MAX_ABS_VALUES[2]) +
+                        w_late * poly_coefficients_1[2][2] * (break_strong_group_score / MAX_ABS_VALUES[2]);
+        score += w_early * poly_coefficients_1[0][3] * (strengthen_group_score / MAX_ABS_VALUES[3]) +
+                    w_mid * poly_coefficients_1[1][3] * (strengthen_group_score / MAX_ABS_VALUES[3]) +
+                        w_late * poly_coefficients_1[2][3] * (strengthen_group_score / MAX_ABS_VALUES[3]);
+        score += w_early * poly_coefficients_1[0][5] * (STARTING_MARBLES_BLACK - black_marbles) / MAX_ABS_VALUES[5] +
+                    w_mid * poly_coefficients_1[1][5] * (STARTING_MARBLES_BLACK - black_marbles) / MAX_ABS_VALUES[5] +
+                        w_late * poly_coefficients_1[2][5] * (STARTING_MARBLES_BLACK - black_marbles) / MAX_ABS_VALUES[5];
+        score -= w_early * poly_coefficients_1[0][6] * (STARTING_MARBLES_WHITE - white_marbles) / MAX_ABS_VALUES[6] +
+                    w_mid * poly_coefficients_1[1][6] * (STARTING_MARBLES_WHITE - white_marbles) / MAX_ABS_VALUES[6] +
+                        w_late * poly_coefficients_1[2][6] * (STARTING_MARBLES_WHITE - white_marbles) / MAX_ABS_VALUES[6];
 
-int eg_king_table[64] = {
-    -74, -35, -18, -18, -11,  15,   4, -17,
-    -12,  17,  14,  17,  17,  38,  23,  11,
-     10,  17,  23,  15,  20,  45,  44,  13,
-     -8,  22,  24,  27,  26,  33,  26,   3,
-    -18,  -4,  21,  24,  27,  23,   9, -11,
-    -19,  -3,  11,  21,  23,  16,   7,  -9,
-    -27, -11,   4,  13,  14,   4,  -5, -17,
-    -53, -34, -21, -11, -28, -14, -24, -43
-};
-
-int game_phase_Inc[12] = {0,0,1,1,1,1,2,2,4,4,0,0};
-
-/* This function evaluates the position only by the points of the pieces. */
-double evaluate_by_points(board *b) {
-    char i, mirrored_square, white_king_square, black_king_square;
-    double mideval = 0; /* The middle game eval. */
-    double endeval = 0; /* The end game eval. */
-    int game_phase = 0; /* The gamephase. */
-    for (i = 0;i < NUMBER_OF_SQUARES;i++) {
-        mirrored_square = (NUMBER_OF_ROWS - get_row(i) - 1)*8 + get_column(i); /* The mirrored square in the board. (for black piece-square table) */
-        game_phase += game_phase_Inc[get_piece_in_square(b,i)]; /* Increment the game phase. */
-        switch (get_piece_in_square(b,i)) {
-            case white_pawn:
-                mideval += mg_value[0] + mg_pawn_table[mirrored_square];
-                endeval += mg_value[0] + eg_pawn_table[mirrored_square];
-                break;
-            case black_pawn:
-                mideval -= mg_value[0] + mg_pawn_table[i];
-                endeval -= eg_value[0] + eg_pawn_table[i];
-                break;
-            case white_knight:
-                mideval += mg_value[1] + mg_knight_table[mirrored_square];
-                endeval += eg_value[1] + eg_knight_table[mirrored_square];
-                break;
-            case black_knight:
-                mideval -= mg_value[1] + mg_knight_table[i];
-                endeval -= eg_value[1] + eg_knight_table[i];
-                break;
-            case white_bishop:
-                mideval += mg_value[2] + mg_bishop_table[mirrored_square];
-                endeval += eg_value[2] + eg_bishop_table[mirrored_square];
-                break;
-            case black_bishop:
-                mideval -= mg_value[2] + mg_bishop_table[i];
-                endeval -= eg_value[2] + eg_bishop_table[i];
-                break;
-            case white_rook:
-                mideval += mg_value[3] + mg_rook_table[mirrored_square];
-                endeval += eg_value[3] + eg_rook_table[mirrored_square];
-                break;
-            case black_rook:
-                mideval -= mg_value[3] + mg_rook_table[i];
-                endeval -= eg_value[3] + eg_rook_table[i];
-                break;
-            case white_queen:
-                mideval += mg_value[4] + mg_queen_table[mirrored_square];
-                endeval += eg_value[4] + eg_queen_table[mirrored_square];
-                break;
-            case black_queen:
-                mideval -= mg_value[4] + mg_queen_table[i];
-                endeval -= eg_value[4] + eg_queen_table[i];
-                break;
-            case white_king:
-                mideval += mg_value[5] + mg_king_table[mirrored_square];
-                endeval += eg_value[5] + eg_king_table[mirrored_square];
-                white_king_square = i;
-                break;
-            case black_king:   
-                mideval -= mg_value[5] + mg_king_table[i];
-                endeval -= eg_value[5] + eg_king_table[i];
-                black_king_square = i;
-                break;
+    }
+    else {
+        score = 0;
+        char modus = color == WHITE ? get_modus(proximity_score, cohesion_score) : get_modus(-proximity_score, -cohesion_score);
+        score += (proximity_score) * weights_table_1[modus - 1][0];
+        score += (cohesion_score) * weights_table_1[modus - 1][1];
+        score += (break_strong_group_score) * weights_table_1[modus - 1][2];
+        score += (strengthen_group_score) * weights_table_1[modus - 1][3];
+        score += (immediate_marb_capturing_danger_score) * weights_table_1[modus - 1][4];
+        if (color == WHITE) {
+            score += (STARTING_MARBLES_BLACK - black_marbles) * weights_table_1[modus - 1][5] -
+                     (STARTING_MARBLES_WHITE - white_marbles) * weights_table_1[modus - 1][6];
+        }
+        else {
+            score += (STARTING_MARBLES_BLACK - black_marbles) * weights_table_1[modus - 1][5] -
+                     (STARTING_MARBLES_WHITE - white_marbles) * weights_table_1[modus - 1][6];
         }
     }
 
-    if (game_phase > 24) game_phase = 24; /* In case of an early promotion. */
-
-    /* In the endgame, the side with the lead needs to get closer the the enemy king: */
-    if ((game_phase * mideval + (24 - game_phase) * endeval) > 0)
-        endeval += 100 - ((abs(get_column(white_king_square) - get_column(black_king_square)) + abs(get_row(white_king_square) - get_row(black_king_square)) - 2) * 10);
-    else
-        endeval -= 100 - ((abs(get_column(white_king_square) - get_column(black_king_square)) + abs(get_row(white_king_square) - get_row(black_king_square)) - 2) * 10);
-    return ((game_phase * mideval + (24 - game_phase) * endeval) / 24) / 100;
+    
+    /*
+    printf(color == WHITE ? "WHITE: " : "BLACK: \n");
+    print_board(b);
+    printf("Proximity: %f, Cohesion: %f, Break: %f, Strengthen: %f, Opponent's marbles removed: %f\n",
+                (white_proximity-black_proximity) * weights[0],
+                (white_cohesion-black_cohesion) * weights[1],
+                (white_break-black_break) * weights[2],
+                (white_strengthen-black_strengthen) * weights[3],
+                color == WHITE ? (STARTING_MARBLES_BLACK - black_marbles) * weights[4] : 
+                -(STARTING_MARBLES_WHITE - white_marbles) * weights[4]);
+    */
+    return score / 100;
 }
+
+void get_features(board* b, char color, double* features) {
+    double white_marbles = 0;
+    double black_marbles = 0;
+    double proximity_score = 0;
+    double cohesion_score = 0;
+    double break_strong_group_score = 0;
+    double strengthen_group_score = 0;
+    double immediate_marb_capturing_danger_score = 0;
+    for (int i = -RADIUS + 1; i < RADIUS; i++) {
+        for (int j = -RADIUS + 1; j < RADIUS; j++) {
+            char marb = get_marb_in_square(b, i, j);
+            if (marb == white_marble) {
+                white_marbles++;
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score += RADIUS - dist - 1;
+                cohesion_score += get_no_neighbours(b, i, j, WHITE);
+                for (enum directions d = 0; d < 6; d++) {
+                    if (get_marb_in_direction(b, i, j, d, 1) == black_marble) {
+                        if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == black_marble) {
+                            break_strong_group_score ++;
+                        }
+                        else if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == white_marble) {
+                            strengthen_group_score ++;
+                        }
+                    }
+                }
+            }
+            else if (marb == black_marble) {
+                black_marbles++;
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score -= RADIUS - dist - 1;
+                cohesion_score -= get_no_neighbours(b, i, j, BLACK);
+                for (enum directions d = 0; d < 6; d++) {
+                    if (get_marb_in_direction(b, i, j, d, 1) == white_marble) {
+                        if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == white_marble) {
+                            break_strong_group_score -- ;
+                        }
+                        else if (get_marb_in_direction(b, i, j, get_backward_direction(d), 1) == black_marble) {
+                            strengthen_group_score --;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    features[0] = proximity_score;
+    features[1] = cohesion_score;
+    features[2] = break_strong_group_score;
+    features[3] = strengthen_group_score;
+    features[4] = immediate_marb_capturing_danger_score;
+    if (color == WHITE) {
+        features[5] = (STARTING_MARBLES_BLACK - black_marbles);
+        features[6] = -(STARTING_MARBLES_WHITE - white_marbles);
+    }
+    else {
+        features[5] = (STARTING_MARBLES_BLACK - black_marbles);
+        features[6] = -(STARTING_MARBLES_WHITE - white_marbles);
+    }
+}
+  
+double lightweight_evaluate(board* b, char color) {
+    /* Use only cohesion and center proximity */
+    double score = 0;
+    int white_marbles = 0;
+    int black_marbles = 0;
+    double proximity_score = 0;
+    double cohesion_score = 0;
+    for (int i = -RADIUS + 1; i < RADIUS; i++) {
+        for (int j = -RADIUS + 1; j < RADIUS; j++) {
+            char marb = get_marb_in_square(b, i, j);
+            if (marb == white_marble) {
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score += RADIUS - dist - 1;
+                cohesion_score += get_no_neighbours(b, i, j, WHITE);
+                white_marbles++;
+            }
+            else if (marb == black_marble) {
+                int dist = hex_distance(i, j, 0, 0);
+                proximity_score -= RADIUS - dist - 1;
+                cohesion_score -= get_no_neighbours(b, i, j, BLACK);
+                black_marbles++;
+            }
+        }
+    }
+    char modus = color == WHITE ? get_modus(proximity_score, cohesion_score) : get_modus(-proximity_score, -cohesion_score);
+    score += (proximity_score) * weights_table_1[modus - 1][0];
+    score += (cohesion_score) * weights_table_1[modus - 1][1];
+    if (color == WHITE) {
+        score += (STARTING_MARBLES_BLACK - black_marbles) * weights_table_1[modus - 1][5] -
+                 (STARTING_MARBLES_WHITE - white_marbles) * weights_table_1[modus - 1][6];
+    }
+    else {
+        score += (STARTING_MARBLES_BLACK - black_marbles) * weights_table_1[modus - 1][6] -
+                 (STARTING_MARBLES_WHITE - white_marbles) * weights_table_1[modus - 1][5];
+    }
+    /*
+    if (score < -200 || score > 200) {
+        printf("score: %f\n", score);
+    }
+    */
+    return score / 100;
+}
+
+
+
+/* Evaluation function: returns score from white's perspective */
+double evaluate(board* b, char color) {
+    //print_board(b);
+    
+    if (evaluation_function_number == 4)
+        return lightweight_evaluate(b, color);
+    else if (evaluation_function_number == 1 || evaluation_function_number == 2) {
+        return evaluate_original(b, color);
+    }
+    else {
+        return evaluate_original(b, color) + evaluate_original(b, color == WHITE ? BLACK : WHITE);
+    }
+}
+

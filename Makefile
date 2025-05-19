@@ -10,14 +10,15 @@ CC_TESTS_FLAGS := -I${INCLUDE} -lm -DTEST -pg -g # I am not adding here the c90 
 
 VALGRIND       := valgrind
 VALGRIND_FLAGS := --leak-check=yes --error-exitcode=2  --track-origins=yes 
+CALLGRIND_FLAGS := --tool=callgrind
 
 SOURCES       := $(shell find ${SRC} -type f -name '*.c')
 HEADERS       := $(shell find ${ROOT} -type f -name '*.h')
 TESTS_SOURCES := $(shell find ${TESTS} -type f -name '*.c')
 
-EXECUTABLE      := NepoChess
-TEST_EXECUTABLE := NepoChessTests
-TEST_EXECUTABLE2 := NepoChessTests2
+EXECUTABLE      := Gnizabalon
+TEST_EXECUTABLE := GnizabalonTests
+TEST_EXECUTABLE2 := GnizabalonTests2
 
 all: ${BIN}/${EXECUTABLE}
 
@@ -35,6 +36,9 @@ valgrind: ${BIN}/${EXECUTABLE}
 
 valgrind-test: ${BIN}/${TEST_EXECUTABLE}
 	${VALGRIND} ${VALGRIND_FLAGS} $<
+
+callgrind: ${BIN}/${TEST_EXECUTABLE}
+	${VALGRIND} ${CALLGRIND_FLAGS} $<
 
 test_against_stockfish: clean ${BIN}/${TEST_EXECUTABLE}
 	python3 tests/play_against_stockfish.py

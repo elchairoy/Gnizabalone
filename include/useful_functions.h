@@ -4,121 +4,138 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>  
 
 #include "possible_moves.h"
 #include "board_struct.h"
 #include "make_move.h"
 
+
 #define MASK_FOR_A_HALF 0x0f /* A mask to get only a half of a byte. */
 #define MASK_FOR_6BITS 0x003f /* A mask to get only 6 bits of a short. */
 #define MASK_FOR_2BITS 0x0003 /* A mask to get only 2 bits of a short. */
+#define MASK_FOR_3BITS 0x0007 /* A mask to get only 3 bits of a short. */
+#define MASK_FOR_4BITS 0x000f /* A mask to get only 4 bits of a short. */
 
-#define SRC_LOC_INDEX 0 /* The place of the source square in the short. */
-#define DST_LOC_INDEX 6 /* The place of the destination square in the short. */
-#define PROMOTE_TO_INDEX 12 /* The place of the 'promote to what' in the short. */
-#define IS_LONG_CASTLE_INDEX 14 /* The place of the 'is long castle' in the short. */
-#define IS_SHORT_CASTLE_INDEX 15 /* The place of the 'is short castle' in the short. */
+#define SRC_ROW_INDEX 0 /* The place of the row of the source square in the short. */
+#define SRC_COL_INDEX 4 /* The place of the column of the source square in the short. */
+#define DIRECTION_INDEX 8 /* The place of the direction of the move in the short. */
+#define END_OF_LINE_ROW_INDEX 12 /* The place of the end of line row in the short. NOTE the end of line is only for the ASIDE moves. */
+#define END_OF_LINE_COL_INDEX 16 /* The place of the end of line column in the short. NOTE the end of line is only for the ASIDE moves. */
 
-#define PIECE_TAKEN_INDEX 0 /* The place of the piece taken in the char (irrev move info). */
-#define IS_PROMOTED_INDEX 6 /* The place of the is_promoted bit in the char (irrev move info). */
-#define IS_EN_PASSANT_INDEX 7 /* The place of the is_en_passant bit in the char (irrev move info). */
-#define EN_PASSANT_PAWN_INDEX 8 /* The place of the en passant pwan of the last move in the char (irrev move info). */
-#define COULD_WHITE_SHORT_CASTLE_INDEX 14 /* The place of the could_white_short_castle bit in the char (irrev move info). */
-#define COULD_WHITE_LONG_CASTLE_INDEX 15 /* The place of the could_white_long_castle bit in the char (irrev move info). */
-#define COULD_BLACK_SHORT_CASTLE_INDEX 16 /* The place of the could_black_short_castle bit in the char (irrev move info). */
-#define COULD_BLACK_LONG_CASTLE_INDEX 17 /* The place of the could_black_long_castle bit in the char (irrev move info). */
+#define NO_PUSHED_INDEX 0 /* The place of the pushed marbles in the short. */
 
 /* This macro gets a move and returns the src square */
-#define get_src_square(m) ((m & (MASK_FOR_6BITS << SRC_LOC_INDEX)) >> SRC_LOC_INDEX)
+#define get_src_row(m) (((m & (MASK_FOR_4BITS << SRC_ROW_INDEX)) >> SRC_ROW_INDEX) - RADIUS + 1) /* Get the row of the source square. */
+#define get_src_col(m) (((m & (MASK_FOR_4BITS << SRC_COL_INDEX)) >> SRC_COL_INDEX) - RADIUS + 1) /* Get the column of the source square. */
+#define get_direction(m) ((m & (MASK_FOR_3BITS << DIRECTION_INDEX)) >> DIRECTION_INDEX) /* Get the direction of the move. */
+#define get_end_of_line_row(m) (((m & (MASK_FOR_4BITS << END_OF_LINE_ROW_INDEX)) >> END_OF_LINE_ROW_INDEX) - RADIUS + 1) /* Get the end of line row. */
+#define get_end_of_line_col(m) (((m & (MASK_FOR_4BITS << END_OF_LINE_COL_INDEX)) >> END_OF_LINE_COL_INDEX) - RADIUS + 1) /* Get the end of line column. */
 
-/* This macro gets a move and returns the dst square */
-#define get_dst_square(m) ((m & (MASK_FOR_6BITS << DST_LOC_INDEX)) >> DST_LOC_INDEX)
+enum move_types {STRAIGHT, ASIDE};
 
-/* This macro gets a move and returns what to promote to */
-#define get_promotion_choice(m) ((m & (MASK_FOR_2BITS << PROMOTE_TO_INDEX)) >> PROMOTE_TO_INDEX)
+#define get_move_type(m) (get_end_of_line_row(m) == get_src_row(m) && get_end_of_line_col(m) == get_src_col(m) ? STRAIGHT : ASIDE) /* Get the type of the move. */
 
-/* This macro gets a move and returns if it's a long castle */
-#define get_is_long_castle(m) ((m & (1 << IS_LONG_CASTLE_INDEX)) >> IS_LONG_CASTLE_INDEX)
+/* This macro gets an irreversible move info and returns the marb taken in the move */
+#define get_no_pushed(move_info) ((move_info & (MASK_FOR_3BITS << NO_PUSHED_INDEX)) >> NO_PUSHED_INDEX)
 
-/* This macro gets a move and returns if it's a short castle */
-#define get_is_short_castle(m) ((m & (1 << IS_SHORT_CASTLE_INDEX)) >> IS_SHORT_CASTLE_INDEX)
-
-/* This macro gets an irreversible move info and returns the piece taken in the move */
-#define get_piece_taken(move_info) ((move_info & (MASK_FOR_6BITS << PIECE_TAKEN_INDEX)) >> PIECE_TAKEN_INDEX)
-
-/* This macro gets an irreversible move info and returns if the move is a promotion */
-#define get_is_promoted(move_info) ((move_info & (1 << IS_PROMOTED_INDEX)) >> IS_PROMOTED_INDEX)
-
-/* This macro gets an irreversible move info and returns if the move is an en passant */
-#define get_is_en_passant(move_info) ((move_info & (1 << IS_EN_PASSANT_INDEX)) >> IS_EN_PASSANT_INDEX)
-
-/* This macro gets an irreversible move info and returns the en passant pawn of the last move */
-#define get_en_passant_pawn_last_move(move_info) ((move_info & (MASK_FOR_6BITS << EN_PASSANT_PAWN_INDEX)) >> EN_PASSANT_PAWN_INDEX)
-
-/* This macro gets an irreversible move info and returns if white could make a short castle before the move */
-#define get_could_white_short_castle_last_move(move_info) ((move_info & (1 << COULD_WHITE_SHORT_CASTLE_INDEX)) >> COULD_WHITE_SHORT_CASTLE_INDEX)
-
-/* This macro gets an irreversible move info and returns if white could make a long castle before the move */
-#define get_could_white_long_castle_last_move(move_info) ((move_info & (1 << COULD_WHITE_LONG_CASTLE_INDEX)) >> COULD_WHITE_LONG_CASTLE_INDEX)
-
-/* This macro gets an irreversible move info and returns if black could make a short castle before the move */
-#define get_could_black_short_castle_last_move(move_info) ((move_info & (1 << COULD_BLACK_SHORT_CASTLE_INDEX)) >> COULD_BLACK_SHORT_CASTLE_INDEX)
-
-/* This macro gets an irreversible move info and returns if black could make a long castle before the move */
-#define get_could_black_long_castle_last_move(move_info) ((move_info & (1 << COULD_BLACK_LONG_CASTLE_INDEX)) >> COULD_BLACK_LONG_CASTLE_INDEX)
+/* This macro gets a move and returns if the move is a push */
+#define get_is_push(move_info) (get_no_pushed(move_info) != 0)
 
 
 /* This macro gets the data needed for a move and returns a short representing the move.*/
-#define create_a_move(the_move, src_loc, dst_loc, promote_to,castle_long, castle_short)\
+#define create_a_move(the_move, src_row, src_col, direction, end_of_line_row, end_of_line_col) \
     (the_move) = 0; \
-    (the_move) |= ((src_loc) << SRC_LOC_INDEX); \
-    (the_move) |= ((dst_loc) << DST_LOC_INDEX); \
-    (the_move) |= ((promote_to) << PROMOTE_TO_INDEX); \
-    (the_move) |= ((castle_long) << IS_LONG_CASTLE_INDEX); \
-    (the_move) |= ((castle_short) << IS_SHORT_CASTLE_INDEX);
+    (the_move) |= ((src_row + RADIUS - 1) << SRC_ROW_INDEX); \
+    (the_move) |= ((src_col + RADIUS - 1) << SRC_COL_INDEX); \
+    (the_move) |= ((direction) << DIRECTION_INDEX); \
+    (the_move) |= ((end_of_line_row + RADIUS - 1) << END_OF_LINE_ROW_INDEX); \
+    (the_move) |= ((end_of_line_col + RADIUS - 1) << END_OF_LINE_COL_INDEX); 
+
 
 /* This macro gets the data needed for a move and returns a short representing the move.*/
-#define create_a_irrev_move_info(the_move_info, piece_taken, is_promoted, is_en_passant, en_passant_pawn_last_move, could_white_short_castle, could_white_long_castle, could_black_short_castle, could_black_long_castle)\
+#define create_an_irrev_move_info(the_move_info, no_pushed) \
     (the_move_info) = 0; \
-    (the_move_info) |= ((piece_taken) << PIECE_TAKEN_INDEX); \
-    (the_move_info) |= ((is_promoted) << IS_PROMOTED_INDEX); \
-    (the_move_info) |= ((is_en_passant) << IS_EN_PASSANT_INDEX); \
-    (the_move_info) |= ((en_passant_pawn_last_move) << EN_PASSANT_PAWN_INDEX); \
-    (the_move_info) |= ((could_white_short_castle) << COULD_WHITE_SHORT_CASTLE_INDEX); \
-    (the_move_info) |= ((could_white_long_castle) << COULD_WHITE_LONG_CASTLE_INDEX); \
-    (the_move_info) |= ((could_black_short_castle) << COULD_BLACK_SHORT_CASTLE_INDEX); \
-    (the_move_info) |= ((could_black_long_castle) << COULD_BLACK_LONG_CASTLE_INDEX);
-
-/* Gives the piece in the given square.
-   If there is an error - returns -1. */
-#define get_piece_in_square(b,s) (b->squares[s])
-
-#define change_the_square(b,s,n) (b->squares[s] = n)
-
-/* Change the piece in the given square to the given piece.
-   If there is an error - returns -1. */
-#define change_the_square(b,s,n) (b->squares[s] = n)
+    (the_move_info) |= ((no_pushed) << NO_PUSHED_INDEX);
 
 
-char is_attacked_by_black(board *the_board, char square);
+// MAX macro
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-char is_attacked_by_white(board *the_board, char square);
+#define get_enemy_marble(marb) (!(marb - 1) + 1)
+
+#define get_marb_in_square(b,r,c) (get_in_bounds((r), (c)) ? go_to_square((b), (r), (c)) : -1) /* Get the marb in the square. */
+
+#define get_marb_in_direction(b,r,c,d,n) \
+    ((d) == LEFT ? get_marb_in_square((b), (r), (c)-(n)) : \
+    ((d) == RIGHT ? get_marb_in_square((b), (r), (c)+(n)) : \
+    ((d) == UP_LEFT ? get_marb_in_square((b), (r)+(n), (c)-(n)) : \
+    ((d) == UP_RIGHT ? get_marb_in_square((b), (r)+(n), (c)) : \
+    ((d) == DOWN_LEFT ? get_marb_in_square((b), (r)-(n), (c)) : \
+    ((d) == DOWN_RIGHT ? get_marb_in_square((b), (r)-(n), (c)+(n)) : \
+    -1))))))
+
+#define change_the_square_in_direction(b,r,c,d,n,m) \
+    ((d) == LEFT ? change_the_square((b), (r), (c)-(n), (m)) : \
+    ((d) == RIGHT ? change_the_square((b), (r), (c)+(n), (m)) : \
+    ((d) == UP_LEFT ? change_the_square((b), (r)+(n), (c)-(n), (m)) : \
+    ((d) == UP_RIGHT ? change_the_square((b), (r)+(n), (c), (m)) : \
+    ((d) == DOWN_LEFT ? change_the_square((b), (r)-(n), (c), (m)) : \
+    ((d) == DOWN_RIGHT ? change_the_square((b), (r)-(n), (c)+(n), (m)) : \
+    -1))))))
+
+#define get_is_out_of_bounds_in_direction(r,c,d) \
+    ((d) == LEFT ? get_in_bounds((r), (c)-1) : \
+    ((d) == RIGHT ? get_in_bounds((r), (c)+1) : \
+    ((d) == UP_LEFT ? get_in_bounds((r)+1, (c)-1) : \
+    ((d) == UP_RIGHT ? get_in_bounds((r)+1, (c)) : \
+    ((d) == DOWN_LEFT ? get_in_bounds((r)-1, (c)) : \
+    ((d) == DOWN_RIGHT ? get_in_bounds((r)-1, (c)+1) : \
+    -1))))))
+
+
+#define get_backward_direction(d) \
+    ((d) == LEFT ? RIGHT : \
+    ((d) == RIGHT ? LEFT : \
+    ((d) == UP_LEFT ? DOWN_RIGHT : \
+    ((d) == UP_RIGHT ? DOWN_LEFT : \
+    ((d) == DOWN_LEFT ? UP_RIGHT : \
+    ((d) == DOWN_RIGHT ? UP_LEFT : \
+    -1))))))
+
+#define python_like_defining(a,b,x,y) \
+    (a) = (x); \
+    (b) = (y); 
+
+
+#define hex_distance(q1, r1, q2, r2) (fmax(fmax(abs((q2) - (q1)), abs((r2) - (r1))), abs(-((q2) - (q1)) - ((r2) - (r1)))))
+
+#define get_no_neighbours(b,r,c,color) \
+    ((get_marb_in_square((b), (r)+1, (c)-1) == ((color) + 1)) + \
+    (get_marb_in_square((b), (r)+1, (c)) == ((color) + 1)) + \
+    (get_marb_in_square((b), (r), (c)-1) == ((color) + 1)) + \
+    (get_marb_in_square((b), (r), (c)+1) == ((color) + 1)) + \
+    (get_marb_in_square((b), (r)-1, (c)) == ((color) + 1)) + \
+    (get_marb_in_square((b), (r)-1, (c)+1) == ((color) + 1))) /* Get the number of neighbours of the square. */
+
+#define get_new_cords_in_direction(r,c,d,no_times_in_direction) \
+    ((d) == LEFT ? (r) = (r), (c) = (c)-(no_times_in_direction) : \
+    ((d) == RIGHT ? (r) = (r), (c) = (c)+(no_times_in_direction) : \
+    ((d) == UP_LEFT ? (r) = (r)+(no_times_in_direction), (c) = (c)-(no_times_in_direction) : \
+    ((d) == UP_RIGHT ? (r) = (r)+(no_times_in_direction), (c) = (c) : \
+    ((d) == DOWN_LEFT ? (r) = (r)-(no_times_in_direction), (c) = (c) : \
+    ((d) == DOWN_RIGHT ? (r) = (r)-(no_times_in_direction), (c) = (c)+(no_times_in_direction) : \
+    -1))))))
+
+
+char get_direction_between_squares(char src_row, char src_col, char dest_row, char dest_col);
 
 char compare_boards(board *board1, board *board2);
 
-char find_king_square(board *the_board, char color);
 
 void print_board(board *the_board);
 
 void print_move(move the_move);
-
-char check_white_long_castle(board *the_board);
-
-char check_white_short_castle(board *the_board);
-
-char check_black_long_castle(board *the_board);
-
-char check_black_short_castle(board *the_board);
 
 char *strrev(char *str);
 
@@ -133,5 +150,25 @@ void unmake_move_in_game(game *the_game, move m, irreversible_move_info inf);
 char check_repetition(game *the_game);
 
 void selection_sort_for_moves(move moves[MAX_POSSIBLE_MOVES / 2], int *values, int k);
+
+int remove_line_duplicates(char (*arr)[4], int n);
+
+const char* coord_to_label(int x, int y);
+
+char is_lost(board *b, char color);
+
+char* label_to_coord(char *label);
+
+double center_helping_score(board *b, move m);
+
+double cohesion_helping_score(board *b, move m);
+
+char push_move_score(board *b, move m);
+
+double get_random_up_to_one();
+
+char *my_strndup(const char *s, size_t n);
+
+static inline double clamp(double x, double low, double high);
 
 #endif /* AE5BDBF7_77C4_4AB2_867A_1994FFAC6C77 */

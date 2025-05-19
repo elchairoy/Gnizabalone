@@ -7,6 +7,10 @@
 
 
 #include "../include/hashtable.h"
+#include "../include/uci.h"
+
+const char DEPTH_UP_SEARCH = 5;
+
 
 int ht_setup(HashTable* table,
 						 size_t key_size,
@@ -368,10 +372,8 @@ int _ht_push_front(HashTable* table, size_t index, void* key, void* value) {
 	table->nodes[index] = _ht_create_node(table, key, value, table->nodes[index]);
 	return table->nodes[index] == NULL ? HT_ERROR : HT_SUCCESS;
 }
-
 void _ht_destroy_node(HTNode* node) {
 	assert(node != NULL);
-
 	free(node->key);
 	free(node->value);
 	free(node);
@@ -440,49 +442,75 @@ void _ht_rehash(HashTable* table, HTNode** old, size_t old_capacity) {
 
 /* Search a position in the hash table: */
 const void *_ht_search_pos(HashTable* table, game *key, char depth, enum node_type type) {
+	if (!IS_HT_SEARCH)
+		return NULL;
 	ht_board_struct bht;
 	const ht_move_eval_struct *value;
 	memset(&bht, 0, sizeof(ht_board_struct));
 	bht.board = *(key->current_position);
 	bht.depth = depth;
 	bht.type = PV_NODE;
+	//return NULL;
 	/* First search for PV_NODE, then for the asked type (Because PV_NODE is always good). */
-	value = ht_const_lookup(table, &bht);
-	if (value != NULL || type == PV_NODE)
-		return value;
-	else {
+	for (int i = depth; i >= depth; i--) {
+		bht.depth = i;
+		value = ht_const_lookup(table, &bht);
+		if (value != NULL) {
+			return value;
+		}
+	}
+	bht.depth = depth;
+	if (type != PV_NODE) {
 		bht.type = type;
 		return ht_const_lookup(table, &bht);
 	}
+	return NULL;
 }
 
 extern long int number_of_ht_inserted; /* The number of positions inserted to the hash table. */
 
 /* Insert a position into the hash table: */
 int _ht_insert_pos(HashTable* table, game *key, char depth, move best, double eval, enum node_type type) {
-	ht_board_struct *bht = malloc(sizeof(ht_board_struct));
-	ht_move_eval_struct *value = malloc(sizeof(ht_move_eval_struct));
+	if (!IS_HT_SEARCH)
+		return 0;
+	ht_board_struct bht;
+	ht_move_eval_struct value;
 	void *temp;
 	/* Clear the memory: */
-	memset(bht, 0, sizeof(ht_board_struct));
-	bht->board = *(key->current_position);
-	bht->depth = depth;
-	bht->type = type;
-	value->best_move = best;
-	value->eval = eval;
-	value->type = type;
-	if ((temp = ht_const_lookup(table, bht)) != NULL) {
-		if (((ht_move_eval_struct*)temp)->type == CUT_NODE && eval >= ((ht_move_eval_struct*)temp)->eval) {
-			/* Replace the node with new one: */
-			ht_erase(table, bht);
-			return ht_insert(table, bht, value);
+	memset(&bht, 0, sizeof(ht_board_struct));
+	bht.board = *(key->current_position);
+	bht.type = type;
+	value.best_move = best;
+	value.eval = eval;
+	value.type = type;
+	number_of_ht_inserted++;
+	if (type == PV_NODE) {
+		/* search for higher and lower depths */
+		for (int i = 0; i < depth; i++) {
+			bht.depth = i;
+			ht_erase(table, &bht);
 		}
-		if (((ht_move_eval_struct*)temp)->type == ALL_NODE && eval <= ((ht_move_eval_struct*)temp)->eval) {
+		for (int i = depth; i < depth + 2; i++) {
+			bht.depth = i;
+			if ((temp = ht_const_lookup(table, &bht)) != NULL) {
+				return 0;
+			}
+		}
+		bht.depth = depth;
+		return ht_insert(table, &bht, &value);
+	}
+	if ((temp = ht_const_lookup(table, &bht)) != NULL) {
+		if (type == CUT_NODE && eval > ((ht_move_eval_struct*)temp)->eval) {
 			/* Replace the node with new one: */
-			ht_erase(table, bht);
-			return ht_insert(table, bht, value);
+			ht_erase(table, &bht);
+			return ht_insert(table, &bht, &value);
+		}
+		if (type == ALL_NODE && eval < ((ht_move_eval_struct*)temp)->eval) {
+			/* Replace the node with new one: */
+			ht_erase(table, &bht);
+			return ht_insert(table, &bht, &value);
 		}
 	}
-	number_of_ht_inserted++;
-	return ht_insert(table, bht, value);
+	else
+		return ht_insert(table, &bht, &value);
 }

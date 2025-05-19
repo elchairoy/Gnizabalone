@@ -1,180 +1,48 @@
 #include "../include/make_move.h"
 
-
-/* The function commit a short castle for white. */
-void commit_a_short_castle_for_white(board * b){
-    change_the_square(b, 4, empty); /* It changes the white king place to empty. */
-    change_the_square(b, 7, empty); /* It changes the white rook place to empty. */
-    change_the_square(b, 6, white_king); /* It puts the white king in his place. */
-    change_the_square(b, 5, white_rook); /* It puts the white rook in his place. */
-    b->can_white_castle_short = 0; /* White can't castle anymore. */
-    b->can_white_castle_long = 0;/* White can't castle anymore. */
-}
-
-/* The function commit a long castle for white. */
-void commit_a_long_castle_for_white(board * b){
-    change_the_square(b, 4, empty); /* It changes the white king place to empty */
-    change_the_square(b, 0, empty); /* It changes the white rook place to empty */
-    change_the_square(b, 2, white_king); /* It puts the white king in his place */
-    change_the_square(b, 3, white_rook); /* It puts the white rook in his place */
-    b->can_white_castle_short = 0; /* White can't castle anymore. */
-    b->can_white_castle_long = 0;/* White can't castle anymore. */
-}
-
-/* The function commit an en passant for white. */
-void commit_en_passant_for_white(board * b, unsigned char src_loc, unsigned char dst_loc){
-    change_the_square(b, src_loc, empty); /* It changes the white pawn place to empty. */
-    change_the_square(b, dst_loc, white_pawn); /* It puts the white pawn in his place. */
-    change_the_square(b, dst_loc - 8, empty); /* It changes the black pawn place to empty. */
-}
-
-/* The function commit a promotion for white. */
-void commit_promotion_for_white(board * b, unsigned char src_loc, unsigned char dst_loc, unsigned char what_to_promote_to){
-    change_the_square(b, src_loc, empty); /* Change the src loc to empty. */
-    if (what_to_promote_to == promote_to_queen) change_the_square(b, dst_loc, white_queen); /* promote to queen. */
-    else if (what_to_promote_to == promote_to_rook) change_the_square(b, dst_loc, white_rook); /* promote to rook. */
-    else if(what_to_promote_to == promote_to_knight) change_the_square(b, dst_loc, white_knight); /* promote to knight */
-    else change_the_square(b, dst_loc, white_bishop); /* promote to bishop. */
-}
-
-/* The function commit a short castle for black. */
-void commit_a_short_castle_for_black(board * b){
-    change_the_square(b, 60, empty); /* It changes the black king place to empty. */
-    change_the_square(b, 63, empty); /* It changes the black rook place to empty. */
-    change_the_square(b, 62, black_king); /* It puts the black king in his place. */
-    change_the_square(b, 61, black_rook); /* It puts the black rook in his place. */
-    b->can_black_castle_short = 0; /* Black can't castle anymore. */
-    b->can_black_castle_long = 0;/* Black can't castle anymore. */
-}
-
-/* The function commit a long castle for black. */
-void commit_a_long_castle_for_black(board * b){
-    change_the_square(b, 60, empty); /* It changes the black king place to empty. */
-    change_the_square(b, 56, empty); /* It changes the black rook place to empty. */
-    change_the_square(b, 58, black_king); /* It puts the black king in his place. */
-    change_the_square(b, 59, black_rook); /* It puts the black rook in his place. */
-    b->can_black_castle_short = 0; /* Black can't castle anymore. */
-    b->can_black_castle_long = 0;/* Black can't castle anymore. */
-}
-
-/* The function commit an en passant for black. */
-void commit_en_passant_for_black(board * b, unsigned char src_loc, unsigned char dst_loc){
-    change_the_square(b, src_loc, empty); /* It changes the black pawn place to empty. */
-    change_the_square(b, dst_loc, black_pawn); /* It puts the black pawn in his place. */
-    change_the_square(b, dst_loc + 8, empty); /* It changes the white pawn place to empty. */
-}
-
-/* The function commit a promotion for black. */
-void commit_promotion_for_black(board * b, unsigned char src_loc, unsigned char dst_loc, unsigned char what_to_promote_to){
-    change_the_square(b, src_loc, empty); /* Change the src loc to empty. */
-    if (what_to_promote_to == promote_to_queen) change_the_square(b, dst_loc, black_queen); /* Promote to queen. */
-    else if (what_to_promote_to == promote_to_rook) change_the_square(b, dst_loc, black_rook); /* Promote to rook. */
-    else if(what_to_promote_to == promote_to_knight) change_the_square(b, dst_loc, black_knight); /* Promote to knight. */
-    else change_the_square(b, dst_loc, black_bishop); /* Promote to bishop. */
-}
-
-/* The function checks which pawns can be eaten by en passant next move, and changes the board. */
-void can_en_passant_next_move(board * b, move m) {
-    unsigned char src_loc = get_src_square(m); /* The src square. */
-    unsigned char dst_loc = get_dst_square(m); /* The dst square. */
-    char piece = get_piece_in_square(b, src_loc); /* It gets the sole in the src square. */
-
-    if (piece == white_pawn && dst_loc == src_loc + UP + UP) { /* A white pawn and goes 2 times forward. */
-        b->en_passant_pawn = dst_loc;
+void commit_a_move_in_board(board *the_board, move m){
+    if (get_move_type(m) == ASIDE) {
+        /* First lets get the direction of the ROW (not the move direction). */
+        char src_row = get_src_row(m), src_col = get_src_col(m);
+        char end_of_line_row = get_end_of_line_row(m), end_of_line_col = get_end_of_line_col(m);
+        enum directions line_direction, direction = get_direction(m);
+        line_direction = get_direction_between_squares(src_row, src_col, end_of_line_row, end_of_line_col);
+        /* Now go over the line and make the move for all the marbles. */
+        char marb_row = src_row, marb_col = src_col;
+        while (1) {
+            change_the_square(the_board, marb_row, marb_col, empty);
+            change_the_square_in_direction(the_board, marb_row, marb_col, direction, 1, the_board->whose_turn+1);
+            if (marb_row == end_of_line_row && marb_col == end_of_line_col)
+                break;
+            get_new_cords_in_direction(marb_row, marb_col, line_direction, 1);
+        }
     }
-    else if (piece == black_pawn && dst_loc == src_loc + DOWN + DOWN) { /* A black pawn and goes 2 times forward. */
-        b->en_passant_pawn = dst_loc;
+    else {
+        char src_row = get_src_row(m), src_col = get_src_col(m);
+        enum directions direction = get_direction(m);
+        char marb_row = src_row, marb_col = src_col;
+        char prev = go_to_square(the_board, marb_row, marb_col);
+        change_the_square(the_board, marb_row, marb_col, empty);
+        while (1) {
+            char temp = get_marb_in_direction(the_board, marb_row, marb_col, direction, 1);
+            if (temp == -1 || prev == empty)
+                break;
+            change_the_square_in_direction(the_board, marb_row, marb_col, direction, 1, prev);
+            prev = temp;
+            get_new_cords_in_direction(marb_row, marb_col, direction, 1);
+        }
     }
+    the_board->whose_turn = !the_board->whose_turn;
 }
 
-/* A function that receives a move of the white and executes it. (For games) */
-void commit_a_move_for_white_in_game(game *the_game, move m){
-    commit_a_move_for_white_in_position(the_game->current_position, m); /* It commits the move for the board. */
-    the_game->moves[the_game->number_of_moves] = m; /* It puts the move in the moves array. */
-    the_game->number_of_moves++; /* It increases the number of moves. */
-    the_game->moves[the_game->number_of_moves] = 0; /* It puts 0 in the next move. */
-}
+void commit_a_move_in_game(game *the_game, move m){
+        /* count all the marbles and check if there are 14 */
 
-/* A function that receives a move of the black and executes it. (For games) */
-void commit_a_move_for_black_in_game(game *the_game, move m){
-    commit_a_move_for_black_in_position(the_game->current_position, m); /* It commits the move for the board. */
-    the_game->moves[the_game->number_of_moves] = m; /* It puts the move in the moves array. */
-    the_game->number_of_moves++; /* It increases the number of moves. */
-    the_game->moves[the_game->number_of_moves] = 0; /* It puts 0 in the next move. */
-}
-
-/* A function that receives a move of the white and executes it. (For boards) */
-void commit_a_move_for_white_in_position(board *b, move m){
-    unsigned char src_loc = get_src_square(m); /* The src square. */
-    unsigned char dst_loc = get_dst_square(m); /* The dst square. */
-    char piece = get_piece_in_square(b, src_loc); /* It gets the sole in the src square. */
-    b->en_passant_pawn = 0; /* The pawns can't en passant anymore. */
+    commit_a_move_in_board(the_game->current_position, m);
+    the_game->moves[the_game->number_of_moves_in_game] = m;
+    the_game->number_of_moves_in_game++;
+    the_game->moves[the_game->number_of_moves_in_game] = 0;
 
 
-    b->whose_turn = 0; /* It will be black's turn next. */
-    if (get_is_short_castle(m) == 1) /* If this move is a short castle. */
-        commit_a_short_castle_for_white(b); /* Commit a short castle for white. */
 
-    else if (get_is_long_castle(m) == 1) /* If this move is a long castle. */
-        commit_a_long_castle_for_white(b); /* Commit a long castle for white. */
-
-    else if ((dst_loc == (src_loc + 9) || dst_loc == (src_loc + 7)) && (piece == white_pawn) && (get_piece_in_square(b, dst_loc) == empty)) /* if it's an en passant: */
-        commit_en_passant_for_white(b, src_loc, dst_loc);
-
-    else if (piece == white_pawn && (dst_loc / 8) == 7) /* If it's a promotion: */
-        commit_promotion_for_white(b, src_loc, dst_loc, get_promotion_choice(m));
-
-    else
-    {
-        /* Check if a rook or the king moved: */
-        if  (src_loc == 0 || dst_loc == 0 || src_loc == 4)
-            b->can_white_castle_long = 0;
-        if  (src_loc == 7 || dst_loc==7 || src_loc == 4)
-            b->can_white_castle_short = 0;
-        if (dst_loc == 56)
-            b->can_black_castle_long = 0;
-        if (dst_loc == 63)
-            b->can_black_castle_short = 0;
-
-        can_en_passant_next_move(b,m); /* Check which pawns can en passant in the next move. */
-        change_the_square(b, src_loc, empty); /* It changes the src square to empty. */
-        change_the_square(b, dst_loc, piece); /* It changes the dst square to the piece. */
-    }
-}
-
-/* A function that receives a move of the black and executes it. (For boards) */
-void commit_a_move_for_black_in_position(board *b, move m){
-    unsigned char src_loc = get_src_square(m); /* The src square. */
-    unsigned char dst_loc = get_dst_square(m); /* The dst square. */
-    char piece = get_piece_in_square(b, src_loc); /* It gets the sole in the src square. */
-    b->en_passant_pawn = 0; /* The pawns can't en passant anymore. */
-
-    b->whose_turn = 1; /* It will be white's turn next. */
-    if (get_is_short_castle(m) == 1) /* If this move is a short castle. */
-        commit_a_short_castle_for_black(b);
-
-    else if (get_is_long_castle(m) == 1) /* If this move is a long castle. */
-        commit_a_long_castle_for_black(b);
-
-    else if ((dst_loc == (src_loc - 9) || dst_loc == (src_loc - 7)) && (piece == black_pawn) && (get_piece_in_square(b, dst_loc) == empty)) /* if it's an en passant. */
-        commit_en_passant_for_black(b, src_loc, dst_loc);
-
-    else if(piece == black_pawn && (dst_loc / 8) == 0)
-        commit_promotion_for_black(b, src_loc, dst_loc, get_promotion_choice(m));
-    else
-    {
-        /* Check if a rook or the king moved: */
-        if  (src_loc == 63 || src_loc == 60)
-            b->can_black_castle_short = 0;
-        if  (src_loc == 56 || src_loc == 60)
-            b->can_black_castle_long = 0;
-        if (dst_loc == 0)
-            b->can_white_castle_long = 0;
-        if (dst_loc == 7)
-            b->can_white_castle_short = 0;
-
-        can_en_passant_next_move(b,m); /* Check which pawns  can en passant in the next move. */
-        change_the_square(b, src_loc, empty); /* It changes the src square to empty. */
-        change_the_square(b, dst_loc, piece); /* It changes the dst square to the piece. */
-    }
 }

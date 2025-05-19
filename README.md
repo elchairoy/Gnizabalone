@@ -1,2 +1,2 @@
-# NepoChess
+# Gnizabalon
 a chess engine
