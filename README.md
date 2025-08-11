@@ -1,2 +1,2 @@
 # Gnizabalon
-a chess engine
+an abalone engine
