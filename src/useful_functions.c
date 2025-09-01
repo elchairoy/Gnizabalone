@@ -50,49 +50,13 @@ char * PIECES1[4] = {    "·",        // empty
 };
 
 
-char is_in_array(char *array, char value){
-    int i;
-    for (i = 0; array[i] != -1; i++) {
-        if (array[i] == value)
-            return 1;
-    }
-    return 0;
-}
+
 
 char compare_boards(board *board1, board *board2){
     char answer1 = memcmp(board1, board2, sizeof(board)) == 0;
     return answer1;
-    char answer2 = 1;
-    for (int i = -RADIUS + 1; i < RADIUS; i++) {
-        for (int j = -RADIUS + 1; j < RADIUS; j++) {
-            if (get_in_bounds(i, j)) {
-                if (board1->grid[i + RADIUS - 1][j + RADIUS - 1] != board2->grid[i + RADIUS - 1][j + RADIUS - 1]) {
-                    answer2 = 0; // If any square is different, the boards are not equal
-                }
-            } else {
-                if (board1->grid[i + RADIUS - 1][j + RADIUS - 1] != 3 || board2->grid[i + RADIUS - 1][j + RADIUS - 1] != 3) {
-                    answer2 = 0; 
-                }
-            }
-        }
-    }
-    if (board1->whose_turn != board2->whose_turn) {
-        answer2 = 0; // If whose_turn is different, the boards are not equal
-    }
-    /*
-    if (answer1 != answer2) {
-        fprintf(stderr, "compare_boards: The two boards are not equal!\n");
-        fprintf(stderr, "Board 1:\n");
-        print_board(board1);
-        fprintf(stderr, "Board 2:\n");
-        print_board(board2);
-    }*/
-    return answer2;
 }
 
-void copy_boards(board *board1, board *board2){
-    memcpy(board1,board2,sizeof(board));
-}
 
 void print_move(move the_move){
     char src_row = get_src_row(the_move), src_col = get_src_col(the_move);
@@ -121,7 +85,7 @@ const char row_labels[] = "ihgfedcba";
 const char row_lensgth[] = {5,6,7,8,9,8,7,6,5}; // Length of each row in the hexagonal board
 
 // Converts axial (x, y) to a string like "D4"
-const char* coord_to_label(int x, int y) {
+const char* cord_to_label(int x, int y) {
     static char label[4]; // Enough for letter + number + null
 
     char letter = row_labels[x + RADIUS - 1]; // Convert x to letter
@@ -136,10 +100,10 @@ const char* coord_to_label(int x, int y) {
     return label;
 }
 
-void label_to_coord(char* label, char cord[2]) {
+void label_to_cord(char* label, char cord[2]) {
     for (int k1 = -RADIUS + 1; k1 < RADIUS; k1++){
         for (int k2 = -RADIUS + 1; k2 < RADIUS; k2++){
-            if (strcmp(label, coord_to_label(-k1,-k2)) == 0) {
+            if (strcmp(label, cord_to_label(-k1,-k2)) == 0) {
                 cord[0] = k1, cord[1] = k2;
                 return;
             }
@@ -167,7 +131,7 @@ void print_board(board *the_board){
             lable[2] = '\0';
             /* Now we want to find the marb that gives us the label */
             char cord[2];
-            label_to_coord(lable, cord);
+            label_to_cord(lable, cord);
             printf("%s ", PIECES1[go_to_square(the_board, cord[0],cord[1])]);
         }
         for (int j = 0; j < 13-row_lensgth[i]; j++){
@@ -181,25 +145,11 @@ void print_board(board *the_board){
     printf("\n");
 }
 
-char *strrev(char *str)
-{
-      char *p1, *p2;
-
-      if (! str || ! *str)
-            return str;
-      for (p1 = str, p2 = str + strlen(str) - 1; p2 > p1; ++p1, --p2)
-      {
-            *p1 ^= *p2;
-            *p2 ^= *p1;
-            *p1 ^= *p2;
-      }
-      return str;
-}
 
 irreversible_move_info get_irrev_move_info(board *b, move m) {
     if (get_move_type(m) == ASIDE)
         return 0;
-    char src_row, src_col, dst_row, dst_col, direction, no_pushed = 1;
+    char src_row, src_col, direction, no_pushed = 1;
     irreversible_move_info inf;
     src_row = get_src_row(m), src_col = get_src_col(m);
     direction = get_direction(m);
@@ -265,22 +215,12 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) 
     the_board->whose_turn = !the_board->whose_turn;
 }
 
-void print_bytes(void *ptr, size_t size) {
-    unsigned char *p = (unsigned char*)ptr;
-    for (size_t i = 0; i < size; i++) {
-        printf("%02X ", p[i]);  // print in hex
-    }
-    printf("\n\n");
-}
 
 /* Check if the game is a draw by repetition: */
 char check_repetition(game *the_game) {
     board temp = the_game->initial_position;
     int i;
     int number_of_repetitions = 0;
-    if (the_game->number_of_moves_in_game >= 200) {
-        return 0;
-    }
     for (i = 0; i < the_game->number_of_moves_in_game; i++) {
         commit_a_move_in_board(&temp, the_game->moves[i]);
         if (compare_boards(&temp, the_game->current_position) == 1) {
@@ -312,34 +252,7 @@ void selection_sort_for_moves(move moves[MAX_POSSIBLE_MOVES / 2], double *values
     moves[max] = temp_move;
 }
 
-char is_same_line(char *line1, char *line2) {
-    char r = line1[0], c = line1[1];
-    get_new_cords_in_direction(&r, &c, line1[2], line1[3] - 1);
-    if (r == line2[0] && c == line2[1] && line1[3] == line2[3]) {
-        return 1;
-    }
-    return 0;
-}
 
-int remove_line_duplicates(char (*arr)[4], int n) {
-    int write_index = 0;
-
-    for (int i = 0; i<n; ++i) {
-        int is_duplicate = 0;
-        for (int j = 0; j < write_index; ++j) {
-            if (is_same_line(arr[i], arr[j])) {
-                is_duplicate = 1;
-                break;
-            }
-        }
-        if (!is_duplicate) {
-            memcpy(arr[write_index], arr[i], sizeof(arr[i]));
-            write_index++;
-        }
-    }
-    arr[write_index][3] = END;
-    return write_index;  // new length
-}
 
 char is_lost(board *b, char color) {
     char no_marb = 0;
@@ -377,7 +290,7 @@ char push_move_score(board *b, move m) {
 
 double center_helping_score(board *b, move m) {
     char src_row = get_src_row(m), src_col = get_src_col(m);
-    char start_src_dist = hex_distance(src_row, src_col, 0, 0);
+    char start_src_dist;
     char temp_row1 = src_row, temp_col1 = src_col;
     char temp_row2, temp_col2;
     get_new_cords_in_direction(&temp_row1, &temp_col1, get_direction(m), 1);
@@ -410,45 +323,6 @@ double center_helping_score(board *b, move m) {
                 score += RADIUS - hex_distance(marb_row, marb_col, 0, 0) - 1;
             else if (temp == get_enemy_marble(b->whose_turn + 1))
                 score -= RADIUS - hex_distance(marb_row, marb_col, 0, 0) - 1;
-            if (temp == empty || temp == -1)
-                break;
-        }
-    }
-    return score;
-}
-
-double cohesion_helping_score(board *b, move m) {
-    char src_row = get_src_row(m), src_col = get_src_col(m);
-    char start_src_dist = hex_distance(src_row, src_col, 0, 0);
-    char temp_row1 = src_row, temp_col1 = src_col;
-    char temp_row2, temp_col2;
-    get_new_cords_in_direction(&temp_row1, &temp_col1, get_direction(m), 1);
-    char end_src_dist = hex_distance(temp_row1, temp_col1, 0, 0);
-    enum directions direction = get_direction(m);
-    char start_end_dist, end_end_dist;
-    /* Return sum of center score difference of start of the line and end of it */
-    int score = 0;
-    if (get_move_type(m) == ASIDE) {
-        enum directions line_direction = get_direction_between_squares(src_row, src_col, get_end_of_line_row(m), get_end_of_line_col(m));
-        while (1) {
-            temp_row2 = temp_row1, temp_col2 = temp_col1;
-            get_new_cords_in_direction(&temp_row2, &temp_col2, direction, 1);
-            score += get_no_neighbours(b, temp_row2, temp_col2, b->whose_turn) -
-                        get_no_neighbours(b, temp_row1, temp_col1, b->whose_turn);
-            char temp = get_marb_in_square(b, temp_row1, temp_col1);
-            if (temp == empty || temp == -1)
-                break;
-            get_new_cords_in_direction(&temp_row1, &temp_col1, line_direction, 1);
-        }
-    }
-    else {
-        char marb_row = src_row, marb_col = src_col;
-        enum directions direction = get_direction(m), backward_direction = get_backward_direction(direction);
-        while (1) {
-            char temp = get_marb_dir1(b, marb_row, marb_col, direction);
-            score -= get_no_neighbours(b, marb_row, marb_col, b->whose_turn);
-            get_new_cords_in_direction(&marb_row, &marb_col, direction, 1);
-            score += get_no_neighbours(b, marb_row, marb_col, b->whose_turn);
             if (temp == empty || temp == -1)
                 break;
         }
@@ -616,7 +490,7 @@ int three_in_a_row_helping_score(board *b, move m) {
 
 static int initializer = 0;
 double get_random(double value) {
-    //return value;
+    return value; // for now, disable randomness
     initializer++;
     // Generate a random number between -1 and 1
     double random = (double)rand() / RAND_MAX;
@@ -655,12 +529,12 @@ void get_board_string(board *b, char *str) {
         }
     }
     str[index] = '\0'; // Null-terminate the string
-    // now we need to reverse the string to match the order of the squares
-    char reversed_str[2 * RADIUS * 2 * RADIUS];
-    for (int i = 0; i < index; i++) {
-        reversed_str[i] = str[index - 1 - i];
-    }
-    reversed_str[index] = '\0'; // Null-terminate the reversed string
+}
+
+void print_board_string(board *b) {
+    char str[100];
+    get_board_string(b, str);
+    printf("Board string: %s\n", str);
 }
  
 char is_capture(board *b, move m) {

@@ -82,7 +82,7 @@ char get_all_lines_in_board(board *the_board, char all_lines[MAX_LINES_IN_BOARD]
 }
 
 /* This function returns all the possible moves a line can do. */
-char get_all_aside_moves_for_line(board *the_board, move *all_moves, char line[4]) {
+char get_all_aside_moves_for_line(board *the_board, move *all_moves, const char line[4]) {
     /* We need to check the 4 other directions. 
     The aside move is possible only if all the places the marbs will go to are empty */
     char no_moves = 0;
@@ -120,7 +120,7 @@ char get_all_aside_moves_for_line(board *the_board, move *all_moves, char line[4
 }
 
 /* This function gets the move the long way (calculates the moves of everything). */
-void get_all_moves_by_calculating_everything(board *the_board, move *all_moves){
+void get_possible_moves(board *the_board, move *all_moves){
     char no_moves = 0;
     /* First phase - calcualte all forward moves: */
     for (char src_row = -RADIUS + 1; src_row <= RADIUS - 1; src_row++) {
@@ -142,12 +142,6 @@ void get_all_moves_by_calculating_everything(board *the_board, move *all_moves){
     all_moves[no_moves] = END;
 }
 
-
-/* This function calculates all possible moves in position based on previous position's array of moves. 
-    The function just recalculates the moves that were changed meanwhile. */
-void get_possible_moves(board *the_board, move *new_all_moves ,move *all_moves, move last_move, irreversible_move_info inf){
-    get_all_moves_by_calculating_everything(the_board, new_all_moves);
-}
 
 
 

@@ -148,13 +148,9 @@ void print_board(board *the_board);
 
 void print_move(move the_move);
 
-char *strrev(char *str);
-
-char is_in_array(char *array, char value);
-
 irreversible_move_info get_irrev_move_info(board *b, move m);
 
-void unmake_move_in_board(board *b, move m, irreversible_move_info inf);
+void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf);
 
 void unmake_move_in_game(game *the_game, move m, irreversible_move_info inf);
 
@@ -162,17 +158,13 @@ char check_repetition(game *the_game);
 
 void selection_sort_for_moves(move moves[MAX_POSSIBLE_MOVES / 2], double *values, int k);
 
-int remove_line_duplicates(char (*arr)[4], int n);
-
-const char* coord_to_label(int x, int y);
+const char* cord_to_label(int x, int y);
 
 char is_lost(board *b, char color);
 
-void label_to_coord(char *label, char coord[2]);
+void label_to_cord(char *label, char cord[2]);
 
 double center_helping_score(board *b, move m);
-
-double cohesion_helping_score(board *b, move m);
 
 char push_move_score(board *b, move m);
 
@@ -185,6 +177,8 @@ char *my_strndup(const char *s, size_t n);
 static inline double clamp(double x, double low, double high);
 
 void get_board_string(board *b, char *str);
+
+void print_board_string(board *b);
 
 char is_capture(board *b, move m);
 

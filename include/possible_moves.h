@@ -17,9 +17,7 @@
 #define MAX_LINES_IN_BOARD 200 /* max number of lines in the board */
 
 /*main func*/
-void get_possible_moves(board *the_board,move *new_all_moves,move *all_moves_last_move, move last_move, irreversible_move_info inf);
-void get_all_moves_by_calculating_everything(board *the_board, move *all_moves);
-void get_possible_moves(board *the_board,move *new_all_moves,move *all_moves_last_move, move last_move, irreversible_move_info inf);
+void get_possible_moves(board *the_board, move *all_moves);
 
 
 #endif /* DA695DC0_90E2_40B5_BC05_F55A01BC0605 */

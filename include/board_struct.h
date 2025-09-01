@@ -21,7 +21,7 @@ enum types {empty, black_marble, white_marble}; /* The types of marbs. */
 
 typedef unsigned int move;
 
-enum node_type {PV_NODE, CUT_NODE, ALL_NODE}; /* The type of a node. */
+enum node_type {PV_NODE, FAIL_HIGH, FAIL_LOW}; /* The type of a node. */
 
 typedef unsigned int irreversible_move_info; 
 

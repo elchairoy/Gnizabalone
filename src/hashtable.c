@@ -1,3 +1,7 @@
+/*
+ * Most of this file is from Peter Goldsborough, MIT License.
+ */
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,11 +16,25 @@
 const char DEPTH_UP_SEARCH = 5;
 
 
+#define NUM_PIECES 3  // empty, black, white
+
+unsigned long zobrist_table[2*RADIUS-1][2*RADIUS-1][NUM_PIECES];
+unsigned long zobrist_white_turn;
+
+void init_zobrist() {
+    for(int r=0;r<2*RADIUS-1;r++)
+        for(int c=0;c<2*RADIUS-1;c++)
+            for(int p=0;p<NUM_PIECES;p++)
+                zobrist_table[r][c][p] = ((unsigned long)rand() << 32) | rand();
+    zobrist_white_turn = ((unsigned long)rand() << 32) | rand();
+}
+
 int ht_setup(HashTable* table,
 						 size_t key_size,
 						 size_t value_size,
 						 size_t capacity) {
 	assert(table != NULL);
+	init_zobrist();
 
 	if (table == NULL) return HT_ERROR;
 
@@ -306,20 +324,25 @@ int _ht_default_compare(void* first_key, void* second_key, size_t key_size) {
 	return memcmp(first_key, second_key, key_size);
 }
 
-size_t _ht_default_hash(void* raw_key, size_t key_size) {
-	/* djb2 string hashing algorithm
-	 sstp://www.cse.yorku.ca/~oz/hash.ssml*/
-	size_t byte;
-	size_t hash = 5381;
-	char* key = raw_key;
 
-	for (byte = 0; byte < key_size; ++byte) {
-		/* (hash << 5) + hash = hash * 33 */
-		hash = ((hash << 5) + hash) ^ key[byte];
-	}
+size_t _ht_default_hash(void* key, size_t key_size) {
+    (void)key_size; // unused, just to satisfy the compiler
+    board* b = (board*)key;
+    size_t h = 0;
 
-	return hash;
+    for (int r = 0; r < 2*RADIUS-1; r++) {
+        for (int c = 0; c < 2*RADIUS-1; c++) {
+			if (!get_in_bounds(r - (RADIUS - 1), c - (RADIUS - 1))) continue;
+            int piece = (int)b->grid[r][c]; // map your half-char to 0..NUM_PIECES-1
+            h ^= (size_t)zobrist_table[r][c][piece];
+        }
+    }
+
+    if (b->whose_turn) h ^= (size_t)zobrist_white_turn;
+
+    return h;
 }
+
 
 size_t _ht_hash(const HashTable* table, void* key) {
 #ifdef HT_USING_POWER_OF_TWO
@@ -451,7 +474,6 @@ const void *_ht_search_pos(HashTable* table, game *key, char depth, enum node_ty
 	bht.depth = depth;
 	bht.type = PV_NODE;
 	/* First search for PV_NODE, then for the asked type (Because PV_NODE is always good). */
-	bht.depth = depth;
 	value = ht_const_lookup(table, &bht);
 	if (value != NULL) {
 		return value;
@@ -490,7 +512,7 @@ int _ht_insert_pos(HashTable* table, game *key, char depth, move best, double ev
 		}
 		for (int i = depth; i < depth + 2; i++) {
 			bht.depth = i;
-			if ((temp = ht_const_lookup(table, &bht)) != NULL) {
+			if (ht_const_lookup(table, &bht) != NULL) {
 				return 0;
 			}
 		}
@@ -498,16 +520,17 @@ int _ht_insert_pos(HashTable* table, game *key, char depth, move best, double ev
 		return ht_insert(table, &bht, &value);
 	}
 	if ((temp = ht_const_lookup(table, &bht)) != NULL) {
-		if (type == CUT_NODE && eval > ((ht_move_eval_struct*)temp)->eval) {
+		if (type == FAIL_HIGH && eval > ((ht_move_eval_struct*)temp)->eval) {
 			/* Replace the node with new one: */
 			ht_erase(table, &bht);
 			return ht_insert(table, &bht, &value);
 		}
-		if (type == ALL_NODE && eval < ((ht_move_eval_struct*)temp)->eval) {
+		if (type == FAIL_LOW && eval < ((ht_move_eval_struct*)temp)->eval) {
 			/* Replace the node with new one: */
 			ht_erase(table, &bht);
 			return ht_insert(table, &bht, &value);
 		}
+		return 0;
 	}
 	else {
 		return ht_insert(table, &bht, &value);

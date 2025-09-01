@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gnizabalone</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .board {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .board.disabled {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            display: none;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .cell:hover {
+            border-color: #ffeb3b;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 235, 59, 0.5);
+        }
+
+        .cell.black {
+            background: radial-gradient(circle, #2c2c2c 0%, #1a1a1a 100%);
+            border-color: #444;
+            color: white;
+        }
+
+        .cell.white {
+            background: radial-gradient(circle, #f0f0f0 0%, #d0d0d0 100%);
+            border-color: #999;
+            color: black;
+        }
+
+        .cell.selected {
+            border-color: #ff4444;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.7);
+            transform: scale(1.15);
+        }
+
+        .cell.valid-move {
+            border-color: #4CAF50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+        }
+
+        .game-info {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .current-player {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .score-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            gap: 20px;
+        }
+
+        .score-box {
+            padding: 15px 25px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            min-width: 120px;
+        }
+
+        .score-box.black {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .score-box.white {
+            background: rgba(255, 255, 255, 0.3);
+            color: #333;
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .score-label {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .score-count {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .winner-announcement {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffeb3b;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 235, 59, 0.2);
+            border-radius: 15px;
+            border: 2px solid #ffeb3b;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .draw-announcement {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ff9800;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 152, 0, 0.2);
+            border-radius: 15px;
+            border: 2px solid #ff9800;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(255, 235, 59, 0.5); }
+            to { box-shadow: 0 0 20px rgba(255, 235, 59, 0.8); }
+        }
+
+        .coordinates {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .move-count {
+            margin-top: 10px;
+            font-size: 1.1em;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9em;
+            max-width: 400px;
+        }
+
+        .console-output {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .game-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .game-btn {
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+        }
+
+        .new-game-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .go-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .go-btn:disabled {
+            background: linear-gradient(135deg, #888 0%, #666 100%);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .toggle-eval-btn {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
+
+        .toggle-eval-btn.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+
+        .game-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .bot-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .go-input {
+            padding: 8px 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1em;
+            width: 80px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .go-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .go-input:focus {
+            outline: none;
+            border-color: #ffeb3b;
+            box-shadow: 0 0 10px rgba(255, 235, 59, 0.3);
+        }
+
+        .go-number-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            padding: 8px 16px;
+            font-size: 1em;
+        }
+
+        .go-number-btn:disabled {
+            background: linear-gradient(135deg, #888 0%, #666 100%);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .input-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.8);
+            margin-right: 5px;
+        }
+
+        .eval-container {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .eval-container.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Gnizabalone</h1>
+        
+        <div class="board" id="board">
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <div>Bot is thinking...</div>
+            </div>
+        </div>
+        
+        <div class="game-info">
+            <div class="game-buttons">
+                <button class="game-btn new-game-btn" id="newGameBtn">Start New Game</button>
+                <button class="game-btn go-btn" id="goBtn" disabled>Go (Bot Move)</button>
+                <button class="game-btn toggle-eval-btn" id="toggleEvalBtn">Show Evaluation</button>
+            </div>
+            
+            <div class="bot-controls">
+                <span class="input-label">Bot moves:</span>
+                <input type="number" class="go-input" id="goInput" placeholder="1" min="1" max="100">
+                <button class="game-btn go-number-btn" id="goNumberBtn" disabled>Go</button>
+            </div>
+            
+            <div class="current-player" id="currentPlayer">Current Player: Black</div>
+            
+            <div class="score-container">
+                <div class="score-box black">
+                    <div class="score-label">Black</div>
+                    <div class="score-count" id="blackScore">14</div>
+                </div>
+                <div class="score-box white">
+                    <div class="score-label">White</div>
+                    <div class="score-count" id="whiteScore">14</div>
+                </div>
+            </div>
+            
+            <div id="winnerAnnouncement" class="winner-announcement" style="display: none;">
+                🎉 WINNER! 🎉
+            </div>
+            
+            <div id="drawAnnouncement" class="draw-announcement" style="display: none;">
+                🤝 DRAW - 500 MOVES REACHED! 🤝
+            </div>
+
+            <div class="eval-container" id="evalContainer">
+                Evaluation: <span id="evalOutput">0</span>
+            </div>
+            
+            <div class="move-count" id="moveCount">Move: 1</div>
+            <div class="coordinates" id="coordinates">Click a piece to see coordinates</div>
+            <div class="instructions">
+                <strong>Instructions:</strong><br>
+                • Select marbles by clicking them (they'll glow red)<br>
+                • Click destination to complete move<br>
+                • Use "Go" button to let bot make a move<br>
+                • Enter number of moves for bot to make multiple moves<br>
+                • Toggle evaluation display with "Show Evaluation" button<br>
+                • Game ends in draw after 500 moves<br>
+                • Check console output for move notation
+            </div>
+            <div class="console-output" id="consoleOutput">
+                <div>Move history will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AbaloneGame {
+            constructor() {
+                this.board = {};
+                this.currentPlayer = 'black';
+                this.selectedCells = [];
+                this.moveCount = 1;
+                this.botProcess = null;
+                this.gameStarted = false;
+                this.waitingForBot = false;
+                this.showEvaluation = false;
+                this.currentEval = '0';
+                this.initializeBoard();
+                this.updateScores();
+                this.renderBoard();
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('newGameBtn').addEventListener('click', () => {
+                    this.startNewGame();
+                });
+
+                document.getElementById('goBtn').addEventListener('click', () => {
+                    this.sendGoCommand();
+                });
+
+                document.getElementById('goNumberBtn').addEventListener('click', () => {
+                    this.sendGoWithNumber();
+                });
+
+                document.getElementById('toggleEvalBtn').addEventListener('click', () => {
+                    this.toggleEvaluation();
+                });
+
+                // Allow Enter key to trigger Go with number
+                document.getElementById('goInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.sendGoWithNumber();
+                    }
+                });
+            }
+
+            toggleEvaluation() {
+                this.showEvaluation = !this.showEvaluation;
+                const evalContainer = document.getElementById('evalContainer');
+                const toggleBtn = document.getElementById('toggleEvalBtn');
+                
+                if (this.showEvaluation) {
+                    evalContainer.classList.add('visible');
+                    toggleBtn.textContent = 'Hide Evaluation';
+                    toggleBtn.classList.add('active');
+                } else {
+                    evalContainer.classList.remove('visible');
+                    toggleBtn.textContent = 'Show Evaluation';
+                    toggleBtn.classList.remove('active');
+                }
+            }
+
+            updateEvaluation(evaluation) {
+                this.currentEval = evaluation;
+                document.getElementById('evalOutput').textContent = evaluation;
+            }
+
+            // Get ordered positions for bot communication
+            getOrderedPositions() {
+                const positions = [];
+                
+                // Order: (0,-4), (1,-4), (2,-4), (3,-4), (4,-4), (-1,-3), (0,-3), ...
+                // Bottom rows first, then middle, then top
+                for (let r = -4; r <= 4; r++) {
+                    const validPositions = this.getValidPositions().filter(pos => pos.r === r);
+                    validPositions.sort((a, b) => a.q - b.q);
+                    positions.push(...validPositions);
+                }
+                
+                return positions;
+            }
+
+            coordToLabel(x, y, RADIUS = 5) {
+                const rowLabels = "abcdefghi";
+                
+                let letter = rowLabels[y + RADIUS - 1];
+                let number = x + RADIUS;
+
+                if (y < 0) {
+                    number += y;
+                }
+
+                return letter + number;
+            }
+
+            // Convert board to string for bot
+            boardToString() {
+                const positions = this.getOrderedPositions();
+                let boardString = '';
+                
+                positions.forEach(pos => {
+                    const piece = this.board[`${pos.q},${pos.r}`];
+                    if (piece === 'white') boardString += 'W';
+                    else if (piece === 'black') boardString += 'B';
+                    else boardString += '0';
+                });
+                
+                return boardString;
+            }
+
+            // Update board from string
+            updateBoardFromString(boardString) {
+                const positions = this.getOrderedPositions();
+                
+                for (let i = 0; i < boardString.length && i < positions.length; i++) {
+                    const pos = positions[i];
+                    const key = `${pos.q},${pos.r}`;
+                    
+                    if (boardString[i] === 'W') {
+                        this.board[key] = 'white';
+                    } else if (boardString[i] === 'B') {
+                        this.board[key] = 'black';
+                    } else {
+                        this.board[key] = null;
+                    }
+                }
+                
+                this.renderBoard();
+            }
+
+            countMarbles() {
+                let blackCount = 0;
+                let whiteCount = 0;
+                
+                Object.values(this.board).forEach(piece => {
+                    if (piece === 'black') blackCount++;
+                    else if (piece === 'white') whiteCount++;
+                });
+                
+                return { black: blackCount, white: whiteCount };
+            }
+
+            updateScores() {
+                const counts = this.countMarbles();
+                
+                document.getElementById('blackScore').textContent = counts.black;
+                document.getElementById('whiteScore').textContent = counts.white;
+                
+                // Check for winner
+                if (counts.black < 9) {
+                    this.announceWinner('White');
+                } else if (counts.white < 9) {
+                    this.announceWinner('Black');
+                } else if (this.moveCount > 500) {
+                    this.announceDraw();
+                }
+            }
+
+            announceWinner(winner) {
+                this.gameEnded = true;
+                this.gameStarted = false;
+                const announcement = document.getElementById('winnerAnnouncement');
+                announcement.textContent = `🎉 ${winner.toUpperCase()} WINS! 🎉`;
+                announcement.style.display = 'block';
+                
+                // Update current player display
+                document.getElementById('currentPlayer').textContent = `Game Over - ${winner} Wins!`;
+
+                this.endGame();
+                console.log(`${winner} wins!`);
+            }
+
+            announceDraw() {
+                this.gameEnded = true;
+                this.gameStarted = false;
+                const announcement = document.getElementById('drawAnnouncement');
+                announcement.style.display = 'block';
+                
+                // Update current player display
+                document.getElementById('currentPlayer').textContent = `Game Over - Draw!`;
+
+                this.endGame();
+                console.log('Game ended in draw after 500 moves');
+            }
+
+            endGame() {
+                // Disable further selections and buttons
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.removeEventListener('click', this.handleCellClick);
+                    cell.classList.remove('selected', 'valid-move');
+                });
+                this.selectedCells = [];
+                this.currentPlayer = null;
+                
+                // Disable Go buttons
+                document.getElementById('goBtn').disabled = true;
+                document.getElementById('goNumberBtn').disabled = true;
+                document.getElementById('toggleEvalBtn').disabled = true;
+            }
+
+            showLoading() {
+                this.waitingForBot = true;
+                document.getElementById('loadingOverlay').style.display = 'block';
+                document.getElementById('board').classList.add('disabled');
+                document.getElementById('goBtn').disabled = true;
+                document.getElementById('goNumberBtn').disabled = true;
+                document.getElementById('newGameBtn').disabled = true;
+                document.getElementById('toggleEvalBtn').disabled = true;
+            }
+
+            hideLoading() {
+                this.waitingForBot = false;
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('board').classList.remove('disabled');
+                document.getElementById('newGameBtn').disabled = false;
+                
+                // Re-enable Go buttons only if game is started and not ended
+                if (this.gameStarted && !this.gameEnded) {
+                    document.getElementById('goBtn').disabled = false;
+                    document.getElementById('goNumberBtn').disabled = false;
+                    document.getElementById('toggleEvalBtn').disabled = false;
+                }
+            }
+
+            async startNewGame() {
+                try {
+                    this.showLoading();
+                    
+                    const response = await fetch('http://localhost:3000/start-bot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: 'newgame 6 6 B' })
+                    });
+
+                    const data = await response.json();
+                    console.log('Bot response:', data);
+
+                    if (data.error) {
+                        console.error('Bot error:', data.error);
+                        this.hideLoading();
+                        return;
+                    }
+
+                    this.updateBoardFromString(data.boardString.boardString);
+                    this.currentPlayer = 'black';
+                    this.moveCount = 1;
+                    this.selectedCells = [];
+                    this.gameStarted = true;
+                    this.gameEnded = false;
+                    this.showEvaluation = false;
+                    this.currentEval = '0';
+                    this.updateScores();
+
+                    // Reset announcements
+                    document.getElementById('winnerAnnouncement').style.display = 'none';
+                    document.getElementById('drawAnnouncement').style.display = 'none';
+                    document.getElementById('evalContainer').classList.remove('visible');
+                    document.getElementById('toggleEvalBtn').textContent = 'Show Evaluation';
+                    document.getElementById('toggleEvalBtn').classList.remove('active');
+                    document.getElementById('evalOutput').textContent = '0';
+
+                    // Reset output console
+                    const consoleOutput = document.getElementById('consoleOutput');
+                    consoleOutput.innerHTML = '<div>Move history will appear here...</div>';
+                    
+                    // Reset input
+                    document.getElementById('goInput').value = '';
+                    
+                    this.updateDisplay();
+                    this.hideLoading();
+
+                    console.log('New game started with bot');
+
+                } catch (error) {
+                    console.error('Failed to start bot:', error);
+                    this.hideLoading();
+                }
+            }
+
+            async sendGoCommand() {
+                if (!this.gameStarted || this.gameEnded || this.waitingForBot) {
+                    return;
+                }
+
+                try {
+                    this.showLoading();
+                    
+                    const response = await fetch('http://localhost:3000/send-go', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: 'go' })
+                    });
+
+                    const data = await response.json();
+                    console.log('Bot response:', data);
+
+                    if (data.error) {
+                        console.error('Bot error:', data.error);
+                        this.hideLoading();
+                        if (data.error === 'Game not started error' || data.error === 'not finished error') {
+                            this.startNewGame();
+                        }
+                        return;
+                    }
+
+                    // Update board with bot's move
+                    this.updateBoardFromString(data.response.boardString);
+                    
+                    // Log the bot's move if provided
+                    if (data.response.move) {
+                        const consoleOutput = document.getElementById('consoleOutput');
+                        const moveDiv = document.createElement('div');
+                        moveDiv.textContent = `Bot: ${data.move}`;
+                        moveDiv.style.color = '#4CAF50';
+                        consoleOutput.appendChild(moveDiv);
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    }
+
+                    // Update evaluation
+                    if (data.response.eval) {
+                        this.updateEvaluation(data.response.eval);
+                    }
+
+                    // Switch to next player
+                    this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+                    this.moveCount++;
+                    this.updateDisplay();
+                    this.updateScores();
+                    this.hideLoading();
+
+                    console.log('Bot move completed');
+
+                } catch (error) {
+                    console.error('Failed to send go command:', error);
+                    this.hideLoading();
+                }
+            }
+
+            async sendGoWithNumber() {
+                if (!this.gameStarted || this.gameEnded || this.waitingForBot) {
+                    return;
+                }
+
+                const input = document.getElementById('goInput');
+                const number = parseInt(input.value) || 1;
+                
+                if (number < 1 || number > 100) {
+                    alert('Please enter a number between 1 and 100');
+                    return;
+                }
+
+                try {
+                    this.showLoading();
+                    
+                    const response = await fetch('http://localhost:3000/send-go', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: `go ${number}` })
+                    });
+
+                    const data = await response.json();
+                    console.log('Bot response:', data);
+
+                    if (data.error) {
+                        console.error('Bot error:', data.error);
+                        this.hideLoading();
+                        if (data.error === 'Game not started error' || data.error === 'not finished error') {
+                            this.startNewGame();
+                        }
+                        return;
+                    }
+
+                    // Update board with bot's move
+                    this.updateBoardFromString(data.response.boardString);
+                    
+                    // Log the bot's moves if provided
+                    if (data.response.move) {
+                        const consoleOutput = document.getElementById('consoleOutput');
+                        const moveDiv = document.createElement('div');
+                        moveDiv.textContent = `Bot (${number} moves): ${data.move}`;
+                        moveDiv.style.color = '#4CAF50';
+                        consoleOutput.appendChild(moveDiv);
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    }
+
+                    // Update evaluation
+                    if (data.response.eval) {
+                        this.updateEvaluation(data.response.eval);
+                    }
+
+                    // Update move count (assuming the bot made the requested number of moves)
+                    this.moveCount += 1;
+                    
+                    // Switch player (assuming odd number of moves means player switches)
+                    this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+                    
+                    this.updateDisplay();
+                    this.updateScores();
+                    this.hideLoading();
+
+                    console.log(`Bot completed ${number} moves`);
+
+                } catch (error) {
+                    console.error('Failed to send go command with number:', error);
+                    this.hideLoading();
+                }
+            }
+
+            async sendMoveToBot() {
+                if (!this.gameStarted || this.gameEnded || this.waitingForBot) {
+                    return;
+                }
+
+                const moveText = this.getMoveText();
+                const commandText = `move ${moveText}`;
+                console.log('Sending command to bot:', commandText);
+                
+                try {
+                    this.showLoading();
+                    
+                    const response = await fetch('http://localhost:3000/send-move', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: commandText })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        console.error('Bot error:', data.error);
+                        this.hideLoading();
+                        return;
+                    }
+
+                    if (data.response === 'Invalid move') {
+                        console.log('Invalid move - no change');
+                        const consoleOutput = document.getElementById('consoleOutput');
+                        const moveDiv = document.createElement('div');
+                        moveDiv.textContent = 'Invalid move';
+                        moveDiv.style.color = '#ff6b6b';
+                        consoleOutput.appendChild(moveDiv);
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                        this.hideLoading();
+                        return;
+                    }
+
+                    this.updateBoardFromString(data.response.boardString);
+
+                    console.log(moveText);
+                    const consoleOutput = document.getElementById('consoleOutput');
+                    const moveDiv = document.createElement('div');
+                    moveDiv.textContent = moveText;
+                    consoleOutput.appendChild(moveDiv);
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+                    this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+                    this.moveCount++;
+                    this.updateDisplay();
+                    this.updateScores();
+                    this.hideLoading();
+
+                } catch (error) {
+                    console.error('Failed to send move to bot:', error);
+                    this.hideLoading();
+                }
+            }
+
+            getMoveText() {
+                const destination = this.selectedCells[this.selectedCells.length - 1];
+                const marbles = this.selectedCells.slice(0, -1);
+                
+                if (marbles.length === 1) {
+                    const src = marbles[0];
+                    return this.coordToLabel(src.q, src.r) + this.coordToLabel(destination.q, destination.r);
+                } else if (marbles.length === 2) {
+                    const first = marbles[0];
+                    const last = marbles[1];
+                    
+                    if (this.areCollinear(first, last, destination)) {
+                        return this.coordToLabel(first.q, first.r) + this.coordToLabel(last.q, last.r);
+                    } else {
+                        return this.coordToLabel(first.q, first.r) + this.coordToLabel(destination.q, destination.r) + this.coordToLabel(last.q, last.r);
+                    }
+                } else if (marbles.length === 3) {
+                    const first = marbles[0];
+                    const middle = marbles[1];
+                    const last = marbles[2];
+                    
+                    if (this.areCollinear(first, middle, destination) && this.areCollinear(middle, last, destination)) {
+                        return this.coordToLabel(first.q, first.r) + this.coordToLabel(destination.q, destination.r);
+                    } else {
+                        return this.coordToLabel(first.q, first.r) + this.coordToLabel(destination.q, destination.r) + this.coordToLabel(last.q, last.r);
+                    }
+                }
+                
+                return '';
+            }
+
+            // Convert hex coordinates to display position
+            hexToDisplay(q, r) {
+                const x = q;
+                const y = r - (q + (q & 1)) / 2;
+                return { x, y };
+            }
+
+            // Get all valid positions on the Abalone board
+            getValidPositions() {
+                const positions = [];
+                
+                // Row by row from top to bottom
+                // Top 4 rows (5,6,7,8 cells)
+                for (let row = 0; row < 4; row++) {
+                    const cellsInRow = 5 + row;
+                    const startQ = -4;
+                    for (let q = startQ; q < startQ + cellsInRow; q++) {
+                        const r = 4 - row;
+                        positions.push({ q, r });
+                    }
+                }
+                
+                // Middle row (9 cells)
+                for (let i = 0; i < 9; i++) {
+                    const q = -4 + i;
+                    const r = 0;
+                    positions.push({ q, r });
+                }
+                
+                // Bottom 4 rows (8,7,6,5 cells)
+                for (let row = 1; row <= 4; row++) {
+                    const cellsInRow = 9 - row;
+                    const startQ = -4 + row;
+                    for (let i = 0; i < cellsInRow; i++) {
+                        const q = startQ + i;
+                        const r = -row;
+                        positions.push({ q, r });
+                    }
+                }
+                
+                return positions;
+            }
+
+            initializeBoard() {
+                // Initialize empty board
+                const positions = this.getValidPositions();
+                positions.forEach(pos => {
+                    this.board[`${pos.q},${pos.r}`] = null;
+                });
+
+                // Set up initial black pieces (top)
+                const blackPositions = [
+                    [-1, 4], [0, 4],
+                    [-1, 3], [0, 3], [1, 3],
+                    [0, 2], [1, 2],
+                    [0, -4], [1, -4],
+                    [-1, -3], [0, -3], [1, -3],
+                    [-1, -2], [0, -2]
+                ];
+                
+                blackPositions.forEach(pos => {
+                    this.board[`${pos[0]},${pos[1]}`] = 'black';
+                });
+
+                // Set up initial white pieces (bottom)
+                const whitePositions = [
+                    [-4, 4], [-3, 4],
+                    [-4, 3], [-3, 3], [-2, 3],
+                    [-3, 2], [-2, 2],
+                    [4, -4], [3, -4],
+                    [4, -3], [3, -3], [2, -3],
+                    [2, -2], [3, -2]
+                ];
+                
+                whitePositions.forEach(pos => {
+                    this.board[`${pos[0]},${pos[1]}`] = 'white';
+                });
+            }
+
+            renderBoard() {
+                const boardEl = document.getElementById('board');
+                // Keep the loading overlay but clear the rest
+                const loadingOverlay = boardEl.querySelector('.loading-overlay');
+                boardEl.innerHTML = '';
+                if (loadingOverlay) {
+                    boardEl.appendChild(loadingOverlay);
+                }
+
+                // Group positions by rows for rendering
+                const rows = {};
+                const positions = this.getValidPositions();
+                
+                positions.forEach(pos => {
+                    const rowKey = pos.r;
+                    if (!rows[rowKey]) rows[rowKey] = [];
+                    rows[rowKey].push(pos);
+                });
+
+                // Sort rows from top to bottom
+                const sortedRows = Object.keys(rows).sort((a, b) => parseInt(b) - parseInt(a));
+                
+                sortedRows.forEach(rowKey => {
+                    const rowEl = document.createElement('div');
+                    rowEl.className = 'row';
+                    
+                    // Sort cells in row from left to right
+                    rows[rowKey].sort((a, b) => a.q - b.q);
+                    
+                    rows[rowKey].forEach(pos => {
+                        const cellEl = document.createElement('div');
+                        cellEl.className = 'cell';
+                        cellEl.dataset.q = pos.q;
+                        cellEl.dataset.r = pos.r;
+                        
+                        const piece = this.board[`${pos.q},${pos.r}`];
+                        if (piece) {
+                            cellEl.classList.add(piece);
+                        }
+                        
+                        cellEl.addEventListener('click', () => this.handleCellClick(pos.q, pos.r));
+                        cellEl.addEventListener('mouseenter', () => this.showCoordinates(pos.q, pos.r));
+                        
+                        rowEl.appendChild(cellEl);
+                    });
+                    
+                    boardEl.appendChild(rowEl);
+                });
+            }
+
+            handleCellClick(q, r) {
+                if (!this.gameStarted || this.gameEnded || this.waitingForBot) {
+                    return;
+                }
+
+                const key = `${q},${r}`;
+                const piece = this.board[key];
+                
+                // selecting a piece - only if it's the current player's piece, and not already selected
+                if (piece === this.currentPlayer) {
+                    // Check if the piece is already selected
+                    const alreadySelected = this.selectedCells.some(cell => cell.q === q && cell.r === r);
+                    if (!alreadySelected) {
+                        // Selecting a piece - limit to 3 marbles
+                        if (this.selectedCells.length < 3) {
+                            this.selectedCells.push({ q, r });
+                        }
+                    } else {
+                        // Deselecting a piece
+                        this.selectedCells = this.selectedCells.filter(cell => !(cell.q === q && cell.r === r));
+                    }
+                } else {
+                    // This is the destination
+                    if (this.selectedCells.length > 0) {
+                        this.selectedCells.push({ q, r }); // Add destination
+                        this.sendMoveToBot();
+                        this.selectedCells = [];
+                    }
+                }
+                
+                this.updateDisplay();
+            }
+
+            // Check if three points are collinear (on the same line)
+            areCollinear(p1, p2, p3) {
+                // In hex coordinates, points are collinear if they lie on one of the three main directions
+                // Check if all points have the same q (vertical line)
+                if (p1.q === p2.q && p2.q === p3.q) return true;
+                
+                // Check if all points have the same r (horizontal line)
+                if (p1.r === p2.r && p2.r === p3.r) return true;
+                
+                // Check if all points have the same s (diagonal line, where s = -q - r)
+                const s1 = p1.q + p1.r;
+                const s2 = p2.q + p2.r;
+                const s3 = p3.q + p3.r;
+                if (s1 === s2 && s2 === s3) return true;
+                
+                return false;
+            }
+
+            showCoordinates(q, r) {
+                const coordEl = document.getElementById('coordinates');
+                coordEl.textContent = `Coordinates: (${q}, ${r})`;
+            }
+
+            updateDisplay() {
+                // Update current player
+                const playerEl = document.getElementById('currentPlayer');
+                if (this.currentPlayer) {
+                    playerEl.textContent = `Current Player: ${this.currentPlayer.charAt(0).toUpperCase() + this.currentPlayer.slice(1)}`;
+                }
+                
+                // Update move count
+                const moveEl = document.getElementById('moveCount');
+                moveEl.textContent = `Move: ${this.moveCount}`;
+                
+                // Update Go button state
+                const goBtn = document.getElementById('goBtn');
+                if (this.gameStarted && !this.gameEnded && !this.waitingForBot) {
+                    goBtn.disabled = false;
+                } else {
+                    goBtn.disabled = true;
+                }
+                
+                // Clear previous selections
+                document.querySelectorAll('.cell').forEach(cell => {
+                    cell.classList.remove('selected', 'valid-move');
+                });
+                
+                // Highlight selected cells
+                this.selectedCells.forEach((cell, index) => {
+                    const selectedEl = document.querySelector(`[data-q="${cell.q}"][data-r="${cell.r}"]`);
+                    if (selectedEl) {
+                        selectedEl.classList.add('selected');
+                    }
+                });
+            }
+        }
+
+        // Initialize the game when the page loads
+        const game = new AbaloneGame();
+    </script>
+</body>
+</html>
