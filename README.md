@@ -29,15 +29,13 @@ Makefile      # Build instructions
 
 * **GCC** compiler
 * **Node.js** (for the web interface)
-* **Express library** for Node.js server
+* **Express and Cors library** for Node.js server
 
 To install Express, run:
 
 ```bash
-npm install express
+npm install express cors
 ```
-
-> Note: The Node.js server and Express also work on Windows if you have Node.js installed.
 
 ---
 
