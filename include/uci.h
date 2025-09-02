@@ -11,12 +11,6 @@
 #include "minimax.h"
 #include "evaluation.h"
 
-
-
-#define IS_HT_SEARCH 1
-
 #define ASPIRATION_WINDOW 100 // for now, not used
-
-
 
 #endif /* AFD0BF27_C006_46B4_89E6_171B4DC00121 */

@@ -227,7 +227,7 @@ char check_repetition(game *the_game) {
             number_of_repetitions++;
         }
     }
-    if (number_of_repetitions >= 2) {
+    if (number_of_repetitions >= 3) {
         return 1;
     }
     else
@@ -534,7 +534,7 @@ void get_board_string(board *b, char *str) {
 void print_board_string(board *b) {
     char str[100];
     get_board_string(b, str);
-    printf("Board string: %s\n", str);
+    printf("boardString: %s\n", str);
 }
  
 char is_capture(board *b, move m) {

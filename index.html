@@ -221,24 +221,13 @@
         }
 
         .instructions {
-            margin-top: 15px;
+            margin: 20px auto;
             padding: 15px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             font-size: 0.9em;
             max-width: 400px;
-        }
-
-        .console-output {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            font-family: monospace;
-            font-size: 0.9em;
-            max-height: 150px;
-            overflow-y: auto;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
         }
         
         .game-buttons {
@@ -408,18 +397,14 @@
             
             <div class="move-count" id="moveCount">Move: 1</div>
             <div class="coordinates" id="coordinates">Click a piece to see coordinates</div>
+            
             <div class="instructions">
                 <strong>Instructions:</strong><br>
                 • Select marbles by clicking them (they'll glow red)<br>
                 • Click destination to complete move<br>
                 • Use "Go" button to let bot make a move<br>
-                • Enter number of moves for bot to make multiple moves<br>
+                • Enter the depth you want (6 is default)<br>
                 • Toggle evaluation display with "Show Evaluation" button<br>
-                • Game ends in draw after 500 moves<br>
-                • Check console output for move notation
-            </div>
-            <div class="console-output" id="consoleOutput">
-                <div>Move history will appear here...</div>
             </div>
         </div>
     </div>
@@ -590,7 +575,6 @@
                 document.getElementById('currentPlayer').textContent = `Game Over - ${winner} Wins!`;
 
                 this.endGame();
-                console.log(`${winner} wins!`);
             }
 
             announceDraw() {
@@ -603,7 +587,6 @@
                 document.getElementById('currentPlayer').textContent = `Game Over - Draw!`;
 
                 this.endGame();
-                console.log('Game ended in draw after 500 moves');
             }
 
             endGame() {
@@ -656,10 +639,8 @@
                     });
 
                     const data = await response.json();
-                    console.log('Bot response:', data);
 
                     if (data.error) {
-                        console.error('Bot error:', data.error);
                         this.hideLoading();
                         return;
                     }
@@ -681,10 +662,6 @@
                     document.getElementById('toggleEvalBtn').textContent = 'Show Evaluation';
                     document.getElementById('toggleEvalBtn').classList.remove('active');
                     document.getElementById('evalOutput').textContent = '0';
-
-                    // Reset output console
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    consoleOutput.innerHTML = '<div>Move history will appear here...</div>';
                     
                     // Reset input
                     document.getElementById('goInput').value = '';
@@ -692,10 +669,7 @@
                     this.updateDisplay();
                     this.hideLoading();
 
-                    console.log('New game started with bot');
-
                 } catch (error) {
-                    console.error('Failed to start bot:', error);
                     this.hideLoading();
                 }
             }
@@ -715,10 +689,8 @@
                     });
 
                     const data = await response.json();
-                    console.log('Bot response:', data);
 
                     if (data.error) {
-                        console.error('Bot error:', data.error);
                         this.hideLoading();
                         if (data.error === 'Game not started error' || data.error === 'not finished error') {
                             this.startNewGame();
@@ -728,16 +700,6 @@
 
                     // Update board with bot's move
                     this.updateBoardFromString(data.response.boardString);
-                    
-                    // Log the bot's move if provided
-                    if (data.response.move) {
-                        const consoleOutput = document.getElementById('consoleOutput');
-                        const moveDiv = document.createElement('div');
-                        moveDiv.textContent = `Bot: ${data.move}`;
-                        moveDiv.style.color = '#4CAF50';
-                        consoleOutput.appendChild(moveDiv);
-                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
-                    }
 
                     // Update evaluation
                     if (data.response.eval) {
@@ -751,10 +713,7 @@
                     this.updateScores();
                     this.hideLoading();
 
-                    console.log('Bot move completed');
-
                 } catch (error) {
-                    console.error('Failed to send go command:', error);
                     this.hideLoading();
                 }
             }
@@ -782,10 +741,8 @@
                     });
 
                     const data = await response.json();
-                    console.log('Bot response:', data);
 
                     if (data.error) {
-                        console.error('Bot error:', data.error);
                         this.hideLoading();
                         if (data.error === 'Game not started error' || data.error === 'not finished error') {
                             this.startNewGame();
@@ -795,16 +752,6 @@
 
                     // Update board with bot's move
                     this.updateBoardFromString(data.response.boardString);
-                    
-                    // Log the bot's moves if provided
-                    if (data.response.move) {
-                        const consoleOutput = document.getElementById('consoleOutput');
-                        const moveDiv = document.createElement('div');
-                        moveDiv.textContent = `Bot (${number} moves): ${data.move}`;
-                        moveDiv.style.color = '#4CAF50';
-                        consoleOutput.appendChild(moveDiv);
-                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
-                    }
 
                     // Update evaluation
                     if (data.response.eval) {
@@ -821,10 +768,7 @@
                     this.updateScores();
                     this.hideLoading();
 
-                    console.log(`Bot completed ${number} moves`);
-
                 } catch (error) {
-                    console.error('Failed to send go command with number:', error);
                     this.hideLoading();
                 }
             }
@@ -836,7 +780,6 @@
 
                 const moveText = this.getMoveText();
                 const commandText = `move ${moveText}`;
-                console.log('Sending command to bot:', commandText);
                 
                 try {
                     this.showLoading();
@@ -850,31 +793,16 @@
                     const data = await response.json();
 
                     if (data.error) {
-                        console.error('Bot error:', data.error);
                         this.hideLoading();
                         return;
                     }
 
                     if (data.response === 'Invalid move') {
-                        console.log('Invalid move - no change');
-                        const consoleOutput = document.getElementById('consoleOutput');
-                        const moveDiv = document.createElement('div');
-                        moveDiv.textContent = 'Invalid move';
-                        moveDiv.style.color = '#ff6b6b';
-                        consoleOutput.appendChild(moveDiv);
-                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
                         this.hideLoading();
                         return;
                     }
 
                     this.updateBoardFromString(data.response.boardString);
-
-                    console.log(moveText);
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    const moveDiv = document.createElement('div');
-                    moveDiv.textContent = moveText;
-                    consoleOutput.appendChild(moveDiv);
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
                     this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
                     this.moveCount++;
@@ -883,7 +811,6 @@
                     this.hideLoading();
 
                 } catch (error) {
-                    console.error('Failed to send move to bot:', error);
                     this.hideLoading();
                 }
             }

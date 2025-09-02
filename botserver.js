@@ -13,7 +13,7 @@ app.use(cors());
 
 
 function startBotProcess() {
-    botProcess = spawn('Gnizabalone.exe');
+    botProcess = spawn('./bin/Gnizabalone.exe');
 
     botProcess.stdout.on('data', (data) => {
         botBuffer += data.toString();

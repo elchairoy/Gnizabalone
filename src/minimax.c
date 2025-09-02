@@ -10,6 +10,7 @@ char MIN_NULL_MOVE; /* The minimum depth for null move. */
 char is_nms; /* If null move search is on. */
 char is_quiescence; /* If quiescence search is on. */
 char Q_DEPTH; /* The quiescence search depth. */
+char is_ht_search; /* If hash table search is on. */
 
 long int number_of_moves = 0; /* The number of positions scaned. */
 long int number_of_ht_found = 0; /* The number of positions found in the hash table. */
@@ -98,22 +99,21 @@ minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, 
         return temp;
     }
 
-    tempvoid = _ht_search_pos(ht, the_game, 0, FAIL_LOW);
-    if (tempvoid != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
-            return (temp);
-        }
-        else if (((ht_move_eval_struct *)tempvoid)->type == FAIL_LOW && ((ht_move_eval_struct *)tempvoid)->eval > alpha) {
-            number_of_ht_found++;
-            alpha = ((ht_move_eval_struct *)tempvoid)->eval;
-        }
-        if (alpha >= beta) {
-            create_a_minimax_eval(&temp, alpha, FAIL_LOW);
-            return temp;
-        }
-    }  
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
+        return (temp);
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, LOWERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval >= beta) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, beta, FAIL_HIGH);
+        return temp;
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, UPPERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval <= alpha) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, alpha, FAIL_LOW);
+        return temp;
+    }
         
 
     double stand_pat_eval = get_random(evaluate(b, the_game->current_position->whose_turn));
@@ -207,21 +207,20 @@ minimax_eval quiescence_search_white(game *the_game, double alpha, double beta, 
         return temp;
     }
 
-    tempvoid = _ht_search_pos(ht, the_game, 0, PV_NODE);
-    if (tempvoid != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
-            return (temp);
-        }
-        else if (((ht_move_eval_struct *)tempvoid)->type == FAIL_HIGH && ((ht_move_eval_struct *)tempvoid)->eval < beta) {
-            number_of_ht_found++;
-            beta = ((ht_move_eval_struct *)tempvoid)->eval;
-        }
-        if (alpha >= beta) {
-            create_a_minimax_eval(&temp, beta, FAIL_HIGH);
-            return temp;
-        }
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
+        return (temp);
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, LOWERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval >= beta) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, beta, FAIL_HIGH);
+        return temp;
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, 0, UPPERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval <= alpha) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, alpha, FAIL_LOW);
+        return temp;
     }
 
 
@@ -321,24 +320,24 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
         create_a_minimax_eval(&temp, 0, PV_NODE);
         return temp;
     }
-    tempvoid = _ht_search_pos(ht, the_game, depth, FAIL_HIGH);
-    if (tempvoid != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
-            return (temp);
-        }
-        else if (((ht_move_eval_struct *)tempvoid)->type == FAIL_HIGH && ((ht_move_eval_struct *)tempvoid)->eval < beta) {
-            number_of_ht_found++;
-            beta = ((ht_move_eval_struct *)tempvoid)->eval;
-        }
-        if (alpha >= beta) {
-            create_a_minimax_eval(&temp, beta, FAIL_HIGH);
-            update_killer_moves(((ht_move_eval_struct *)tempvoid)->best_move);
-            update_history_heuristic(((ht_move_eval_struct *)tempvoid)->best_move);
-            return temp;
-        }
-    }  
+    /* Search for the position in the hash table: */
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
+        return (temp);
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, UPPERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval <= alpha) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, alpha, FAIL_LOW);
+        return temp;
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, LOWERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval >= beta) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, beta, FAIL_HIGH);
+        update_killer_moves(((ht_move_eval_struct *)tempvoid)->best_move);
+        update_history_heuristic(((ht_move_eval_struct *)tempvoid)->best_move);
+        return temp;
+    }
 
     if (depth == 0) {
         temp = quiescence_search_white(the_game, alpha, beta, Q_DEPTH, ht);
@@ -358,7 +357,7 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
         b->whose_turn = WHITE;
         is_nms = 1;
         if (temp.eval >= beta) {
-            _ht_insert_pos(ht, the_game, depth, END, temp.eval, FAIL_HIGH);
+            _ht_insert_pos(ht, the_game, depth, END, temp.eval, LOWERBOUND);
             create_a_minimax_eval(&temp, beta, FAIL_HIGH);
             return temp;
         }
@@ -376,7 +375,7 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
             is_pv_node = 1;
         }
         if (temp.eval >= beta) {
-            _ht_insert_pos(ht, the_game, depth, all_moves[i], temp.eval, FAIL_HIGH);
+            _ht_insert_pos(ht, the_game, depth, all_moves[i], temp.eval, LOWERBOUND);
             create_a_minimax_eval(&temp, beta, FAIL_HIGH);
             update_killer_moves(all_moves[i]);
             update_history_heuristic(all_moves[i]);
@@ -399,7 +398,7 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
         create_a_minimax_eval(&temp, max, PV_NODE);
     }
     else {
-        _ht_insert_pos(ht, the_game, depth, best, alpha, FAIL_LOW);
+        _ht_insert_pos(ht, the_game, depth, END, alpha, UPPERBOUND);
         create_a_minimax_eval(&temp, alpha, FAIL_LOW);
     }
     return temp;
@@ -433,24 +432,23 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
         
 
     /* Search for the position in the hash table: */
-    tempvoid = _ht_search_pos(ht, the_game, depth, FAIL_LOW);
-    if (tempvoid != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
-            return (temp);
-        }
-        else if (((ht_move_eval_struct *)tempvoid)->type == FAIL_LOW && ((ht_move_eval_struct *)tempvoid)->eval > alpha) {
-            number_of_ht_found++;
-            alpha = ((ht_move_eval_struct *)tempvoid)->eval;
-        }
-        if (alpha >= beta) {
-            create_a_minimax_eval(&temp, alpha, FAIL_LOW);
-            update_killer_moves(((ht_move_eval_struct *)tempvoid)->best_move);
-            update_history_heuristic(((ht_move_eval_struct *)tempvoid)->best_move);
-            return temp;
-        }
-    }  
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE);
+        return (temp);
+    }
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, UPPERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval <= alpha) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, alpha, FAIL_LOW);
+        update_killer_moves(((ht_move_eval_struct *)tempvoid)->best_move);
+        update_history_heuristic(((ht_move_eval_struct *)tempvoid)->best_move);
+        return temp;
+    } 
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, LOWERBOUND)) != NULL && ((ht_move_eval_struct *)tempvoid)->eval >= beta) { /* Make sure this would also be cutted. */
+        number_of_ht_found++;
+        create_a_minimax_eval(&temp, beta, FAIL_HIGH);
+        return temp;
+    }
 
     if (depth == 0) {
         temp = quiescence_search_black(the_game, alpha, beta, Q_DEPTH, ht);
@@ -471,7 +469,7 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
         b->whose_turn = BLACK;
         is_nms = 1;
         if (temp.eval <= alpha) {
-            _ht_insert_pos(ht, the_game, depth, END, temp.eval, FAIL_LOW);
+            _ht_insert_pos(ht, the_game, depth, END, temp.eval, UPPERBOUND);
             create_a_minimax_eval(&temp, alpha, FAIL_LOW);
             return temp;
         }
@@ -491,7 +489,7 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
             
         }
         if (temp.eval <= alpha) {
-            _ht_insert_pos(ht, the_game, depth, all_moves[i], temp.eval, FAIL_LOW);
+            _ht_insert_pos(ht, the_game, depth, all_moves[i], temp.eval, UPPERBOUND);
             create_a_minimax_eval(&temp, alpha, FAIL_LOW);
             update_killer_moves(all_moves[i]);
             update_history_heuristic(all_moves[i]);
@@ -515,7 +513,7 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
         create_a_minimax_eval(&temp, min, PV_NODE);
     }
     else {
-        _ht_insert_pos(ht, the_game, depth, best, beta, FAIL_HIGH);
+        _ht_insert_pos(ht, the_game, depth, END, beta, LOWERBOUND);
         create_a_minimax_eval(&temp, beta, FAIL_HIGH);
     }
     return temp;
@@ -530,11 +528,22 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     minimax_eval temp;
     move best;
     number_of_moves++;
+    const void *tempvoid;
     char is_pv_node = 0;
     double move_values[MAX_POSSIBLE_MOVES]; /* The values of the moves. */
     is_quiescence = 1;
     Q_DEPTH = 10;
     is_nms = 1;
+    is_ht_search = 1;
+
+    
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
+            number_of_ht_found++;
+            create_a_minimax_move_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE, ((ht_move_eval_struct *)tempvoid)->best_move);
+            return (temp);
+        }
+    }
     
     get_possible_moves(b,all_moves); /* Gets all the moves possible. */
     best = all_moves[0]; /* The default move . */
@@ -585,10 +594,20 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
     minimax_eval temp;
     number_of_moves++;
     char is_pv_node = 0;
+    const void *tempvoid;
     double move_values[MAX_POSSIBLE_MOVES]; /* The values of the moves. */
     is_nms = 1;
     is_quiescence = 1; /* We are not in quiescence search. */
     Q_DEPTH = 10;
+    is_ht_search = 1;
+
+    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
+        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
+            number_of_ht_found++;
+            create_a_minimax_move_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE, ((ht_move_eval_struct *)tempvoid)->best_move);
+            return (temp);
+        }
+    }
     
     get_possible_moves(b,all_moves); /* Gets all the moves possible. */
     best = all_moves[i]; /* The default move . */

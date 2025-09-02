@@ -53,9 +53,13 @@ typedef struct HashTable {
 
 } HashTable;
 
+enum STORED_EVAL_TYPE {
+	EXACT_NODE,
+	LOWERBOUND,
+	UPPERBOUND
+};
 typedef struct ht_board_struct {
 	board board;
-	char depth;
 	enum node_type type;
 } ht_board_struct;
 
@@ -63,6 +67,7 @@ typedef struct ht_move_eval_struct {
 	move best_move;
 	double eval;
 	enum node_type type;
+	char depth;
 } ht_move_eval_struct;
 
 

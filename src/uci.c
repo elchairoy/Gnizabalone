@@ -2,6 +2,7 @@
 #include "evaluation.h"
 
 extern long int number_of_moves;
+extern long int number_of_ht_found;
 extern char evaluation_function_number;
 
 extern int history_heuristic_push[2*RADIUS - 1][2*RADIUS - 1][6];
@@ -229,6 +230,7 @@ double bot_move(game *the_game, HashTable *ht, char logs)
         print_board(the_board);}
     if(ht->size >= 2000000) {
         ht_clear(ht);
+        printf("Hash table cleared\n");
     }
     return bot_move.eval;
 }
@@ -597,6 +599,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
             is_game_on = 0;
         }
         print_board(the_game->current_position);
+        print_board_string(the_game->current_position);
     }
     if (!strncmp (line, "mg", 2))
     {
