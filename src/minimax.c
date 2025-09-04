@@ -87,7 +87,6 @@ minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, 
     const void *tempvoid;
     double move_values[MAX_POSSIBLE_MOVES];
     double best_eval = MAX_EVAL;
-    char is_pv_node = 0;
     // Evaluate the current position statically. This is the "stand-pat" value.
     if (is_lost(b, BLACK)) {
         create_a_minimax_eval(&temp, MAX_EVAL, PV_NODE);
@@ -163,7 +162,6 @@ minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, 
         // Update beta if we find a better (lower) score.
         if (temp.eval < beta) {
             beta = temp.eval;
-            is_pv_node = 1;
         }
 
         // Check for an alpha cutoff. If the minimizing player can force a position
@@ -179,10 +177,7 @@ minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, 
         }
         i++;
     }
-    if (is_pv_node)
-        create_a_minimax_eval(&temp, best_eval, PV_NODE);
-    else
-        create_a_minimax_eval(&temp, beta, FAIL_HIGH);
+    create_a_minimax_eval(&temp, best_eval, PV_NODE);
     return temp;
 }
 
@@ -195,7 +190,6 @@ minimax_eval quiescence_search_white(game *the_game, double alpha, double beta, 
     const void *tempvoid;
     double move_values[MAX_POSSIBLE_MOVES];
     double best_eval = MIN_EVAL;
-    char is_pv_node = 0;
     // Evaluate the current position statically.
     if (is_lost(b, WHITE)) {
         create_a_minimax_eval(&temp, MIN_EVAL, PV_NODE);
@@ -272,7 +266,6 @@ minimax_eval quiescence_search_white(game *the_game, double alpha, double beta, 
         // Update alpha if we find a better (higher) score.
         if (temp.eval > alpha) {
             alpha = temp.eval;
-            is_pv_node = 1;
         }
 
         // Check for a beta cutoff. If the maximizing player can force a position
@@ -287,10 +280,7 @@ minimax_eval quiescence_search_white(game *the_game, double alpha, double beta, 
         }
         i++;
     }
-    if (is_pv_node)
-        create_a_minimax_eval(&temp, best_eval, PV_NODE);
-    else
-        create_a_minimax_eval(&temp, alpha, FAIL_LOW);
+    create_a_minimax_eval(&temp, best_eval, PV_NODE);
     return temp;
 }
 
@@ -532,18 +522,11 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     char is_pv_node = 0;
     double move_values[MAX_POSSIBLE_MOVES]; /* The values of the moves. */
     is_quiescence = 1;
-    Q_DEPTH = 10;
+    Q_DEPTH = 2;
     is_nms = 1;
     is_ht_search = 1;
 
     
-    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_move_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE, ((ht_move_eval_struct *)tempvoid)->best_move);
-            return (temp);
-        }
-    }
     
     get_possible_moves(b,all_moves); /* Gets all the moves possible. */
     best = all_moves[0]; /* The default move . */
@@ -599,15 +582,8 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
     is_nms = 1;
     is_quiescence = 1; /* We are not in quiescence search. */
     Q_DEPTH = 10;
-    is_ht_search = 1;
+    is_ht_search = 0;
 
-    if ((tempvoid = _ht_search_pos(ht, the_game, depth, PV_NODE)) != NULL) { /* Make sure this would also be cutted. */
-        if (((ht_move_eval_struct *)tempvoid)->type == PV_NODE) {
-            number_of_ht_found++;
-            create_a_minimax_move_eval(&temp, ((ht_move_eval_struct *)tempvoid)->eval, PV_NODE, ((ht_move_eval_struct *)tempvoid)->best_move);
-            return (temp);
-        }
-    }
     
     get_possible_moves(b,all_moves); /* Gets all the moves possible. */
     best = all_moves[i]; /* The default move . */

@@ -221,6 +221,9 @@ char check_repetition(game *the_game) {
     board temp = the_game->initial_position;
     int i;
     int number_of_repetitions = 0;
+    if (the_game->number_of_moves_in_game >= 300) {
+        return 1;
+    }
     for (i = 0; i < the_game->number_of_moves_in_game; i++) {
         commit_a_move_in_board(&temp, the_game->moves[i]);
         if (compare_boards(&temp, the_game->current_position) == 1) {

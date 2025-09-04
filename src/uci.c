@@ -123,10 +123,6 @@ extern char MIN_NULL_MOVE;
 
 double bot_move(game *the_game, HashTable *ht, char logs)
 {
-    if(ht->size >= 2000000) {
-        ht_clear(ht);
-    }
-
     board *the_board = the_game->current_position;
     minimax_eval bot_move;
     bot_move.eval = 0;
@@ -252,7 +248,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game)) {
+        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -271,7 +267,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game)) {
+        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -291,7 +287,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, WHITE)) {
             return -1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game)) {
+        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -301,7 +297,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, BLACK)) {
             return 1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game)) {
+        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -480,6 +476,7 @@ int load_weights(const char *filename, double *weights, int expected_count) {
 }
 
 
+
 /* This function parses the commands. */
 char uci_parse(game *the_game, char is_game_on, HashTable *ht)
 {       
@@ -635,9 +632,234 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
 
 
 
+
+
+typedef struct {
+    double features[12]; // Assuming 9 features
+    double target;      // The game result from this position
+} Position;
+typedef struct {
+    Position *positions;
+    int num_positions;
+} Dataset;
+
+
+void write_dataset_to_file(const char *filename, Dataset *ds) {
+    FILE *fp = fopen(filename, "w");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    for (int i = 0; i < ds->num_positions; i++) {
+        fprintf(fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
+                ds->positions[i].features[0], ds->positions[i].features[1],
+                ds->positions[i].features[2], ds->positions[i].features[3],
+                ds->positions[i].features[4], ds->positions[i].features[5],
+                ds->positions[i].features[6], ds->positions[i].features[7],
+                ds->positions[i].features[8], ds->positions[i].target);
+    }
+    fclose(fp);
+}
+
+
+void add_dataset_to_file(const char *filename, Dataset *ds) {
+    FILE *fp = fopen(filename, "a");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    for (int i = 0; i < ds->num_positions; i++) {
+        fprintf(fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
+                ds->positions[i].features[0], ds->positions[i].features[1],
+                ds->positions[i].features[2], ds->positions[i].features[3],
+                ds->positions[i].features[4], ds->positions[i].features[5],
+                ds->positions[i].features[6], ds->positions[i].features[7],
+                ds->positions[i].features[8], ds->positions[i].features[9],
+                ds->positions[i].features[10], ds->positions[i].features[11],
+                ds->positions[i].target);
+    }
+    fprintf(fp, "\n");
+    fclose(fp);
+}
+
+void save_boardstring_to_file(const char *filename, char boardstrings[][64], int num_positions) {
+    FILE *fp = fopen(filename, "a");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    for (int i = 0; i < num_positions; i++) {
+        fprintf(fp, "%s\n", boardstrings[i]);
+    }
+    fclose(fp);
+}
+
+
+
+double simulate_number_of_games(HashTable *ht, char depth, int number_of_games) {
+    /* Simulate a number of games and return the average score */
+    game the_game;
+    memset(&the_game, 0, sizeof(game));
+    board init;
+    memset(&init, 0, sizeof(board));
+    init_empty_board(&init);
+    int random_line = rand() % 500;
+    char boardstring[100];
+    int i = 0;
+    FILE *fp = fopen("all_boardstrings.txt", "r");
+    while (i < random_line) {
+        fgets(boardstring, sizeof(boardstring), fp);
+        i++;
+    }
+    boardstring[61] = rand() % 2 == 0 ? 'W' : 'B';
+    boardstring[62] = '\0';
+    board_string_to_board(&init, boardstring);
+    create_game(&the_game, &init);
+    double total_score = 0.0;
+    depth_by_color[0] = depth;
+    depth_by_color[1] = depth; 
+    double score;
+    int j; 
+    Dataset *ds = malloc(sizeof(Dataset));
+    ds->positions = malloc(sizeof(Position) * 10000);
+    ds->num_positions = 0;
+    double features[12];
+    char boardstrings[MAX_POSSIBLE_MOVES][64];
+    for (int i = 0; i < number_of_games; i++) {
+        char temp = eval_function_by_color[0];
+        eval_function_by_color[0] = eval_function_by_color[1];
+        eval_function_by_color[1] = temp;
+        temp = depth_by_color[0];
+        depth_by_color[0] = depth_by_color[1];
+        depth_by_color[1] = temp;
+        for (j = 0; j < MAX_POSSIBLE_MOVES; j++) {
+            get_features2(the_game.current_position, the_game.current_position->whose_turn, features);
+            get_board_string(the_game.current_position, boardstrings[j]);
+            memcpy(ds->positions[ds->num_positions].features, features, sizeof(ds->positions[ds->num_positions].features));
+            ds->num_positions++;
+            bot_move(&the_game, ht, -1);
+            if (check_endgame(&the_game) == 0) {
+                break;
+            }
+        }
+        score = who_won(&the_game);
+        total_score += score;
+        for (int k = 0; k < ds->num_positions; k++) {
+            ds->positions[k].target = score;
+        }
+    }
+    // Swap the evaluation functions back if the number of games is odd
+    if (number_of_games % 2 == 1) {
+        char temp = eval_function_by_color[0];
+        eval_function_by_color[0] = eval_function_by_color[1];
+        eval_function_by_color[1] = temp; // Swap back if odd number of games
+    }
+    add_dataset_to_file("all_games_deapth_5_q10.csv", ds);
+    save_boardstring_to_file("all_boardstrings_5_q10.txt", boardstrings, j);
+    return total_score / number_of_games;
+}
+
+
+void selfplay(HashTable *ht, int number_of_games, char depth) {
+    // This function plays a number of games against itself and saves the features to a file
+    for (int i = 0; i < number_of_games; i++) {
+        eval_function_by_color[0] = rand() % 1 + 4; // Randomly choose between 4, 5, 6
+        eval_function_by_color[1] = rand() % 1 + 4; // Randomly choose between 4, 5, 6
+        double score = simulate_number_of_games(ht, depth, 1);
+    }
+}
+
+void get_features_and_evals_from_boardstrings_file(const char *input_filename, const char *output_filename) {
+    FILE *fp = fopen(input_filename, "r");
+    if (!fp) {
+        perror("Failed to open input file");
+        return;
+    }
+    char line[100];
+    FILE *out_fp = fopen(output_filename, "w");
+    if (!out_fp) {
+        perror("Failed to open output file");
+        fclose(fp);
+        return;
+    }
+    board b;
+    double features[12];
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
+        line[61] = 'B';
+        line[62] = '\0';
+        board_string_to_board(&b, line);
+        get_features2(&b, b.whose_turn, features);
+        fprintf(out_fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
+                features[0], features[1], features[2], features[3],
+                features[4], features[5], features[6], features[7],
+                features[8], features[9], features[10], features[11]);
+        evaluation_function_number = 6;
+        double eval = evaluate(&b, b.whose_turn);
+        fprintf(out_fp, ",%lf\n", eval);
+        count++;
+        if (count % 1000 == 0) {
+            printf("Processed %d positions\n", count);
+            fflush(stdout);
+        }
+    }
+}
+
 extern double self_play_weights1[WEIGHT_COUNT];
 extern double self_play_weights2[WEIGHT_COUNT];
 extern double self_play_weights3[WEIGHT_COUNT];
+
+void devide_file_into_games(const char *input_filename, const char *output_filename) {
+    // you get the file of features, and you check if the positions are very very different, and if they are, or the score is different, its different games
+    FILE *fp = fopen(input_filename, "r");
+    if (!fp) {
+        perror("Failed to open input file");
+        return;
+    }
+    FILE *out_fp = fopen(output_filename, "w");
+    double prev_features[16];
+    double prev_eval = 0;
+    int is_first = 1;
+    char line[1000];
+    while (fgets(line, sizeof(line), fp)) {
+        double features[16];
+        char *token = strtok(line, ",");
+        int i = 0;
+        while (token != NULL && i < 16) {
+            features[i] = atof(token);
+            token = strtok(NULL, ",");
+            i++;
+        }
+        if (i < 16) {
+            continue; // Skip incomplete lines
+        }
+        // eval is after the 16 features
+        double eval = atof(token);
+        if (!is_first) {
+            // calculate MAE
+            double mae = 0;
+            for (int j = 0; j < 16; j++) {
+                mae += fabs(features[j] - prev_features[j]);
+            }
+            mae /= 16.0;
+            if (mae > 0.2 || eval != prev_eval) {
+                // then its a new game
+                fprintf(out_fp, "\n");
+            }
+        }
+        for (int j = 0; j < 12; j++) {
+            fprintf(out_fp, "%lf,", features[j]);
+        }
+        fprintf(out_fp, "%lf", eval);
+        fprintf(out_fp, "\n");
+        memcpy(prev_features, features, sizeof(features));
+        prev_eval = eval;
+        is_first = 0;
+    }
+    
+}
 
 int main()
 {
@@ -659,9 +881,11 @@ int main()
     load_weights("weights_A.txt", self_play_weights1, WEIGHT_COUNT);
     load_weights("weights_B.txt", self_play_weights2, WEIGHT_COUNT); // best one.
     load_weights("weights_C.txt", self_play_weights3, WEIGHT_COUNT);
-    eval_function_by_color[0] = 5;
+    eval_function_by_color[0] = 4;
     eval_function_by_color[1] = 5;
     srand(time(NULL)); // Seed the random number generator
+    //devide_file_into_games("all_games_deapth_5_q10.csv", "all_games_deapth_5_q10_divided.csv");
+    //selfplay(&ht, 10000, 5);
 
      
 	while(1) {

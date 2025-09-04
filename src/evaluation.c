@@ -148,8 +148,8 @@ void get_features2(board* b, char color, double* features) {
     double break_strong_group_score_white = 0, break_strong_group_score_black = 0;
     double strengthen_group_score_white = 0, strengthen_group_score_black = 0;
     double lines_of_3_white = 0, lines_of_3_black = 0;
-    char white_center_row = 0, white_center_col = 0;
-    char black_center_row = 0, black_center_col = 0;
+    double white_center_row = 0, white_center_col = 0;
+    double black_center_row = 0, black_center_col = 0;
 
     for (int i = -RADIUS + 1; i < RADIUS; i++) {
         for (int j = -RADIUS + 1; j < RADIUS; j++) {
@@ -239,24 +239,19 @@ void get_features2(board* b, char color, double* features) {
     features[f++] = proximity_score_white - proximity_score_black; // proximity score difference
     features[f++] = proximity_score_white / white_marbles - proximity_score_black / black_marbles; // normalized by number of marbles
     features[f++] = proximity_squared_score_white / white_marbles - proximity_squared_score_black / black_marbles; // normalized by number of marbles
-    features[f++] = proximity_score_white;
-    features[f++] = proximity_score_black;
-    features[f++] = cohesion_score_white;
-    features[f++] = cohesion_score_black;
+    features[f++] = cohesion_score_white - cohesion_score_black;
     features[f++] = break_strong_group_score_white - break_strong_group_score_black;
     features[f++] = strengthen_group_score_white - strengthen_group_score_black;
     features[f++] = lines_of_3_white - lines_of_3_black;
-    features[f++] = (STARTING_MARBLES_BLACK - black_marbles);
-    features[f++] = (STARTING_MARBLES_WHITE - white_marbles); // difference in marbles
+    features[f++] = (STARTING_MARBLES_BLACK - black_marbles) - (STARTING_MARBLES_WHITE - white_marbles); // difference in marbles
+    features[f++] = (STARTING_MARBLES_BLACK - black_marbles) + (STARTING_MARBLES_WHITE - white_marbles); // total marbles lost
     features[f++] = pow(2,proximity_score_white/white_marbles) * (STARTING_MARBLES_BLACK - black_marbles) -
                   pow(2,proximity_score_black/black_marbles) * (STARTING_MARBLES_WHITE - white_marbles);
     features[f++] = white_proximity_to_itself / white_marbles - black_proximity_to_itself / black_marbles;
     features[f++] = white_distant_marbles - black_distant_marbles;
 
-    // Relative feature
-    features[f++] = hex_distance(white_center_row, white_center_col, black_center_row, black_center_col);
 
-    const double MAX_ABS_VALUES[FEATURE_COUNT] = {34. ,2., 64, 34., 34., 47., 47., 18., 18.,  80.,  6., 6., 20, 2.888889, 13., 3.};    // Normalize features
+    const double MAX_ABS_VALUES[FEATURE_COUNT] = {34. ,2., 64, 47., 18., 18.,  80.,  6., 12., 20, 2.888889, 13.};    // Normalize features
     for (int i = 0; i < FEATURE_COUNT; i++) {
         features[i] /= MAX_ABS_VALUES[i];
     }
@@ -313,7 +308,7 @@ static inline double get_nn1_output(const double *input, const double *weights) 
 }
 
 // Another NN architecture
-#define INPUT_SIZE2 16
+#define INPUT_SIZE2 12
 #define HIDDEN1_SIZE2 16
 #define HIDDEN2_SIZE2 4
 
