@@ -539,6 +539,7 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     }
 
     order_moves(the_game,all_moves,move_values, depth, ht); /* Orders the moves. */
+
     while (all_moves[i] != END) {
         selection_sort_for_moves(all_moves, move_values, i); /* Sorts the moves. */
         irreversible_move_info temp_inf = get_irrev_move_info(b,all_moves[i]);

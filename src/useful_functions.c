@@ -53,8 +53,7 @@ char * PIECES1[4] = {    "·",        // empty
 
 
 char compare_boards(board *board1, board *board2){
-    char answer1 = memcmp(board1, board2, sizeof(board)) == 0;
-    return answer1;
+    return board1->hash == board2->hash;
 }
 
 
@@ -233,7 +232,7 @@ char check_repetition(game *the_game) {
             number_of_repetitions++;
         }
     }
-    if (number_of_repetitions >= 3) {
+    if (number_of_repetitions >= 2) {
         return 1;
     }
     else

@@ -456,6 +456,7 @@ void create_game(game *g, board *initial_position) {
         }
     }
     g->initial_position.whose_turn = initial_position->whose_turn;
+    g->initial_position.hash = initial_position->hash;
 
 }
 
@@ -635,7 +636,6 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
 
     return is_game_on;
 }
-
 
 
 extern double self_play_weights1[WEIGHT_COUNT];
