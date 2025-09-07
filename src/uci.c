@@ -248,7 +248,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game)) {
+        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -267,7 +267,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game)) {
+        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -287,7 +287,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, WHITE)) {
             return -1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game)) {
+        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -297,7 +297,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, BLACK)) {
             return 1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game)) {
+        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -318,6 +318,7 @@ void init_empty_board(board *b) {
             }
         }
     }
+    b->hash = _ht_default_hash(b);
 }
 
 
@@ -358,6 +359,7 @@ void board_string_to_board(board *b, char *str) {
     } else {
         b->whose_turn = BLACK; // Default to black if not specified
     }
+    b->hash = _ht_default_hash(b);
     //print_board(b);
 }
 
@@ -392,6 +394,8 @@ void regualr_opening(board *b) {
     change_the_square(b, 3, -3, white_marble);
     change_the_square(b, 4, -4, white_marble);
     change_the_square(b, 3, -4, white_marble);
+
+    b->hash = _ht_default_hash(b);
 }
 
 void belgian_daisy_opening(board *b) {
@@ -425,12 +429,14 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, -3, 4, white_marble);
     change_the_square(b, -4, 3, white_marble);
     change_the_square(b, -4, 4, white_marble);
+
+    b->hash = _ht_default_hash(b);
 }
 
 void debug_opening(board *b) {
     b->whose_turn = BLACK;
     // start with all black marbles in the center, and the white is in the corners
-    char *bs = "000000B00B000BBWW000BWWWW0000WWWWB000BBWWW0BBBBWB000B0B000000B";
+    char *bs = "W00000B0B0W00000WW00BBBWWW000BBBWWW000BB000000B0000BB00000W00B";
     board_string_to_board(b, bs);
 }
 
@@ -496,7 +502,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         ht_clear(ht);
         init_empty_board(init);
         if (line[12] == 'B')
-            belgian_daisy_opening(init);
+            debug_opening(init);
         else if (line[12] == 'R')
             regualr_opening(init);
         else if (line[12] == 'D')

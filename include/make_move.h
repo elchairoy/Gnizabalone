@@ -5,6 +5,7 @@
 #include "board_struct.h"
 #include "useful_functions.h"
 #include "possible_moves.h"
+#include "hashtable.h"
 
 /* A function that receives a move and executes it. (For games) */
 void commit_a_move_in_game(game *the_game, move m);

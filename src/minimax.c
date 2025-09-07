@@ -594,7 +594,6 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
         create_a_minimax_move_eval(&temp, MAX_EVAL, PV_NODE, END);
         return temp;
     }
-
     order_moves(the_game, all_moves, move_values, depth, ht);
     while (all_moves[i] != END) {
         /* Make a selection sort in all_moves, using the values of the moves: */

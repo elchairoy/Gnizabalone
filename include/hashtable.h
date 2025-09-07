@@ -114,7 +114,12 @@ int _ht_insert_pos(HashTable* table, game *key, char depth, move best, double ev
 void _ht_int_swap(size_t* first, size_t* second);
 void _ht_pointer_swap(void** first, void** second);
 
-size_t _ht_default_hash(void* key, size_t key_size);
+size_t _ht_default_hash(board *b);
+size_t _ht_update_hash(board *b,
+                       char src_row, char src_col,
+                       char old_piece, char new_piece, char is_new_turn);
+size_t _ht_get_hash(void *key);
+
 int _ht_default_compare(void* first_key, void* second_key, size_t key_size);
 
 size_t _ht_hash(const HashTable* table, void* key);

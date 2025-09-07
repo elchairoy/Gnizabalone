@@ -184,6 +184,10 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) 
         while (1) {
             change_the_square(the_board, marb_row, marb_col, get_enemy_marble(the_board->whose_turn + 1));
             change_the_square_in_direction(the_board, marb_row, marb_col, direction, 1, empty);
+            _ht_update_hash(the_board, marb_row, marb_col, empty, get_enemy_marble(the_board->whose_turn + 1), 0);
+            char temp_row = marb_row, temp_col = marb_col;
+            get_new_cords_in_direction(&temp_row, &temp_col, direction, 1);
+            _ht_update_hash(the_board, temp_row, temp_col, get_enemy_marble(the_board->whose_turn + 1), empty, 0);
             if (marb_row == end_of_line_row && marb_col == end_of_line_col)
                 break;
             get_new_cords_in_direction(&marb_row, &marb_col, line_direction, 1);
@@ -205,6 +209,7 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) 
         while (1) {
             char temp = go_to_square(the_board, marb_row, marb_col);
             change_the_square(the_board, marb_row, marb_col, prev);
+            _ht_update_hash(the_board, marb_row, marb_col, temp, prev, 0);
             prev = temp;
             if (marb_row == src_row && marb_col == src_col) 
                 break;
@@ -213,6 +218,7 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) 
 
     }
     the_board->whose_turn = !the_board->whose_turn;
+    _ht_update_hash(the_board, 0, 0, 0, 0, 1); // update for turn change
 }
 
 

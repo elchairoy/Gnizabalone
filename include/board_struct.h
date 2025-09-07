@@ -30,6 +30,7 @@ typedef struct {
     char grid[2*RADIUS-1][2*RADIUS-1]; /* List of all the squares in the board.
                                                         Each square represented by half a char. */
     int whose_turn; /* 1 if it's white turn, 0 if it's black turn. */
+    unsigned long long int hash; /* The hash of the position. */
 }board;
 
 

@@ -51,7 +51,7 @@ int ht_setup(HashTable* table,
 
 	table->key_size = key_size;
 	table->value_size = value_size;
-	table->hash = _ht_default_hash;
+	table->hash = _ht_get_hash;
 	table->compare = _ht_default_compare;
 	table->size = 0;
 
@@ -328,10 +328,7 @@ int _ht_default_compare(void* first_key, void* second_key, size_t key_size) {
 }
 
 
-size_t _ht_default_hash(void* key, size_t key_size) {
-    (void)key_size; // unused, just to satisfy the compiler
-	ht_board_struct* bht = (ht_board_struct*)key;
-    board* b = &bht->board;
+size_t _ht_default_hash(board* b) {
     size_t h = 0;
 
     for (int r = 0; r < 2*RADIUS-1; r++) {
@@ -344,11 +341,49 @@ size_t _ht_default_hash(void* key, size_t key_size) {
 
     if (b->whose_turn) h ^= (size_t)zobrist_white_turn;
 
-	h ^= zobrist_node_type[bht->type];
+    return h;
+}
+
+// Update zobrist hash incrementally based on a move
+// key: pointer to ht_board_struct
+// src_row, src_col: coordinates of the changed square
+// old_piece: piece removed/replaced
+// new_piece: piece placed
+size_t _ht_update_hash(board *b,
+                       char src_row, char src_col,
+                       char old_piece, char new_piece, char is_new_turn)
+{
+
+    // Start from the current stored hash
+    size_t h = b->hash;
+
+    // XOR out the old piece (if any)
+    if (old_piece >= 0) {
+        h ^= zobrist_table[src_row + RADIUS - 1][src_col + RADIUS - 1][(int)old_piece];
+    }
+
+    // XOR in the new piece (if any)
+    if (new_piece >= 0) {
+        h ^= zobrist_table[src_row + RADIUS - 1][src_col + RADIUS - 1][(int)new_piece];
+    }
+
+    // Flip turn
+	if (is_new_turn)
+    	h ^= zobrist_white_turn;
+
+    // Save it back into the board (keeps it always updated)
+    b->hash = h;
 
     return h;
 }
 
+size_t _ht_get_hash(void *key) {
+	ht_board_struct *bht = (ht_board_struct *)key;
+	size_t board_hash = bht->board.hash;
+	// combine the board hash with the node type
+	size_t type_hash = zobrist_node_type[bht->type];
+	return board_hash ^ type_hash;
+}
 
 size_t _ht_hash(const HashTable* table, void* key) {
 #ifdef HT_USING_POWER_OF_TWO
