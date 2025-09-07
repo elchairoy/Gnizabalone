@@ -89,7 +89,7 @@ node botserver.js
 
 Gnizabalone is currently **the strongest Abalone bot I’m aware of**. It was created by **Elchairoy Meir**.
 
-Special thanks to **Vincent Forchot**, 10× Abalone world champion (who lost to the bot in a match), for his guidance and advice, and to Ishai for the inspiration.
+Special thanks to **Vincent Frochot**, 10× Abalone world champion (who lost to the bot in a match), for his guidance and advice, and to Ishai for the inspiration.
 
 ---
 
