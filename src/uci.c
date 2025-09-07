@@ -503,7 +503,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         ht_clear(ht);
         init_empty_board(init);
         if (line[12] == 'B')
-            debug_opening(init);
+            belgian_daisy_opening(init);
         else if (line[12] == 'R')
             regualr_opening(init);
         else if (line[12] == 'D')
