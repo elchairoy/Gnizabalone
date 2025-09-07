@@ -47,7 +47,7 @@ Abalone is often described as a quiet game, but in practice (especially in the o
 ## Training the Evaluation
 
 * The evaluation network is fine-tuned using **TD-learning** on datasets of self-play games.
-* The current evaluation function is far from optimal, it could be improved significantly with the right data (I suggest depth 5+ with quiescences).
+* The current evaluation function is far from optimal, it could be improved significantly.
 * A key future improvement would be to bias the evaluation to **prefer winning more quickly**, e.g. by adding a small penalty per move.
 
 ---

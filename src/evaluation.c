@@ -385,3 +385,6 @@ double evaluate(board* b, char color) {
     }
 }
 
+double evaluate_features(const double* features, char color) {
+    return get_nn1_output(features, self_play_weights3);
+}

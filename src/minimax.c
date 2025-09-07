@@ -522,7 +522,7 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     char is_pv_node = 0;
     double move_values[MAX_POSSIBLE_MOVES]; /* The values of the moves. */
     is_quiescence = 1;
-    Q_DEPTH = 2;
+    Q_DEPTH = 10;
     is_nms = 1;
     is_ht_search = 1;
 
@@ -582,7 +582,7 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
     is_nms = 1;
     is_quiescence = 1; /* We are not in quiescence search. */
     Q_DEPTH = 10;
-    is_ht_search = 0;
+    is_ht_search = 1;
 
     
     get_possible_moves(b,all_moves); /* Gets all the moves possible. */
