@@ -76,7 +76,8 @@ void decay_history_heuristic(double decay) {
 }
 
 
-
+clock_t start_time;
+double max_duration; /* The maximum duration of the search in seconds. -1 means no limit. */
 
 // This function performs a quiescence search for the black player.
 minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, char depth, HashTable *ht) {
@@ -93,7 +94,7 @@ minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, 
         return temp;
     }
 
-    if (check_repetition(the_game)) { /* Check for repetition */
+    if (check_repetition(the_game, 1)) { /* Check for repetition */
         create_a_minimax_eval(&temp, 0, PV_NODE);
         return temp;
     }
@@ -196,7 +197,7 @@ minimax_eval quiescence_search_white(game *the_game, double alpha, double beta, 
         return temp;
     }
 
-    if (check_repetition(the_game))/* Repitition */ {
+    if (check_repetition(the_game, 1))/* Repitition */ {
         create_a_minimax_eval(&temp, 0, PV_NODE);
         return temp;
     }
@@ -305,9 +306,15 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
         return temp;
     }
 
-    if (check_repetition(the_game))/* Repitition */ {
+    if (check_repetition(the_game, 1))/* Repitition */ {
         _ht_insert_pos(ht, the_game, depth, END, 0, PV_NODE);
         create_a_minimax_eval(&temp, 0, PV_NODE);
+        return temp;
+    }
+
+    clock_t current_time = clock();
+    if (max_duration != -1 && ((double)(current_time - start_time) / CLOCKS_PER_SEC) >= max_duration) {
+        create_a_minimax_eval(&temp, 0, NO_TIME);
         return temp;
     }
     /* Search for the position in the hash table: */
@@ -360,6 +367,9 @@ minimax_eval evaluate_minimax_for_white(game *the_game, char depth, double alpha
         commit_a_move_in_game(the_game,all_moves[i]); /* Commits the move. */
         temp = evaluate_minimax_for_black(the_game, depth - 1, alpha, beta, ht);
         unmake_move_in_game(the_game,all_moves[i],temp_inf);
+        if (temp.type == NO_TIME) {
+            return temp;
+        }
         if (temp.eval > alpha) {
             alpha = temp.eval;
             is_pv_node = 1;
@@ -413,11 +423,17 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
         return temp;
     }
 
-    if (check_repetition(the_game)) {
+    if (check_repetition(the_game, 1)) {
         _ht_insert_pos(ht, the_game, depth, END, 0, PV_NODE);
         create_a_minimax_eval(&temp, 0, PV_NODE);
         return temp;
     }
+
+    clock_t current_time = clock();
+    if (max_duration != -1 && ((double)(current_time - start_time) / CLOCKS_PER_SEC) >= max_duration) {
+        create_a_minimax_eval(&temp, 0, NO_TIME);
+        return temp;
+    }  
 
         
 
@@ -473,6 +489,9 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
         commit_a_move_in_game(the_game,all_moves[i]); /* Commits the move. */
         temp = evaluate_minimax_for_white(the_game, depth - 1, alpha, beta, ht);
         unmake_move_in_game(the_game,all_moves[i],temp_inf);
+        if (temp.type == NO_TIME) {
+            return temp;
+        }
         if (temp.eval < beta) {
             beta = temp.eval;
             is_pv_node = 1;
@@ -546,6 +565,9 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
         commit_a_move_in_game(the_game,all_moves[i]); /* Commits the move. */
         temp = evaluate_minimax_for_black(the_game, depth - 1, max, beta, ht); /* Checks what is the eval after the move. */
         unmake_move_in_game(the_game,all_moves[i],temp_inf);
+        if (temp.type == NO_TIME) {
+            return temp;
+        }
         if (temp.eval > max) { /* If the eval is better then the max eval: */
             max = temp.eval; /* Changes max to be it. */
             best = all_moves[i];
@@ -603,6 +625,9 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
         commit_a_move_in_game(the_game,all_moves[i]); /* Commits the move. */
         temp = evaluate_minimax_for_white(the_game, depth - 1, alpha, min, ht); /* Checks what is the eval after the move. */
         unmake_move_in_game(the_game,all_moves[i],temp_inf);
+        if (temp.type == NO_TIME) {
+            return temp;
+        }
         if (temp.eval < min) { /* If the eval is better then the max eval: */
             min = temp.eval; /* Changes max to be it. */
             best = all_moves[i];

@@ -115,120 +115,116 @@ int player_move(game *the_game, const char *str)
     }
 }
 
+double get_max_duration(game *the_game) {
+    /* After this amount of time he would stop the search and return the move. */
+    double remaining_time = the_game->tc.time_left[the_game->current_position->whose_turn];
+    double increment = the_game->tc.increment[the_game->current_position->whose_turn];
+    if (increment == -1) {
+        return -1; // no limit
+    }
+    return remaining_time / 20.0 + increment / 1.1;
+}
+
+double get_soft_bound(game *the_game) {
+    /* This is the soft bound for the search - after each depth if the time exceeded this limit, he wouldn't continue to the next depth. */
+    double remaining_time = the_game->tc.time_left[the_game->current_position->whose_turn];
+    double increment = the_game->tc.increment[the_game->current_position->whose_turn];
+    if (increment == -1) {
+        return -1; // no limit
+    }
+    return remaining_time / 40.0 + increment / 2;
+}
 
 char eval_function_by_color[2];
 char depth_by_color[2] = {6, 6};
 extern char NULL_MOVE_REDUCTION;
 extern char MIN_NULL_MOVE;
-
+extern clock_t start_time;
+extern double max_duration;
 double bot_move(game *the_game, HashTable *ht, char logs)
 {
     board *the_board = the_game->current_position;
-    minimax_eval bot_move;
-    bot_move.eval = 0;
+    move all_moves[MAX_POSSIBLE_MOVES];
+    get_possible_moves(the_board, all_moves);
+
+    minimax_eval best_move, old_best_move;
+    old_best_move.m = all_moves[0];
+    best_move.eval = 0;
+
+    int color = the_board->whose_turn;
+    int max_depth = depth_by_color[color];
     int i = 1;
-    long int change_in_no_of_moves, initial_number_of_moves = number_of_moves;
+    long int initial_moves = number_of_moves;
+    double last_eval = 0.0;
+    double current_depth_time = 0.0;
+    double total_time = 0.0;
+    double soft_duration_bound;
+    max_duration = get_max_duration(the_game);
+    soft_duration_bound = get_soft_bound(the_game);
+
     decay_history_heuristic(0);
-    if (the_board->whose_turn == WHITE)
-    {   
-        evaluation_function_number = eval_function_by_color[0];
-        double last_depth_time = 1;
-        double current_depth_time;
-        double multiplier;
-        double estimated_next_time;
-        double last_eval = 0;
 
-        while (i <= depth_by_color[0]) {
-            clock_t start_time = clock();
+    start_time = clock();
+    while (i <= max_depth) {
+        // Adjust null-move reduction based on depth
+        if (i < 6) { NULL_MOVE_REDUCTION = 2; MIN_NULL_MOVE = 2; }
+        else { NULL_MOVE_REDUCTION = 3; MIN_NULL_MOVE = 2; }
 
-            if (i < 6) {
-                NULL_MOVE_REDUCTION = 2;
-                MIN_NULL_MOVE = 2;
-            } else {
-                NULL_MOVE_REDUCTION = 3;
-                MIN_NULL_MOVE = 2;
-            }
+        evaluation_function_number = eval_function_by_color[color];
 
-            bot_move = get_best_move_white(the_game, i, 
-                                        last_eval - ASPIRATION_WINDOW, 
-                                        last_eval + ASPIRATION_WINDOW, ht);
-            last_eval = bot_move.eval;
-            change_in_no_of_moves = number_of_moves - initial_number_of_moves;
+        // Select the move depending on color
+        if (color == WHITE)
+            best_move = get_best_move_white(the_game, i, last_eval - ASPIRATION_WINDOW,
+                                           last_eval + ASPIRATION_WINDOW, ht);
+        else
+            best_move = get_best_move_black(the_game, i, last_eval - ASPIRATION_WINDOW,
+                                           last_eval + ASPIRATION_WINDOW, ht);
 
-            clock_t end_time = clock();
-            current_depth_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+        last_eval = best_move.eval;
 
-            // Update multiplier and estimate
-            multiplier = current_depth_time / last_depth_time;
-            estimated_next_time = current_depth_time * multiplier;
+        long int moves_this_depth = number_of_moves - initial_moves;
 
-            if (logs == 1) {
-                printf("best so far: ");
-                print_move(bot_move.m);
-                printf("number of moves: %ld\n", change_in_no_of_moves);
-                printf("depth = %d\n", i);
-                printf("time at this depth = %.3f sec\n", current_depth_time);
-                printf("estimated time for next depth = %.3f sec\n", estimated_next_time);
-            }
+        current_depth_time = (double)(clock() - start_time) / CLOCKS_PER_SEC;
 
-            last_depth_time = current_depth_time;
-            decay_history_heuristic(HISTORY_DECAY);
-            i++;
+        if (best_move.type == NO_TIME) {
+            best_move = old_best_move;
+            if (logs == 1)
+                printf("No time left, stopping search (time %.3f sec)\n", current_depth_time);
+            break;
         }
-        commit_a_move_in_game(the_game, bot_move.m);
-    }
-    
-    else
-    {
-        evaluation_function_number = eval_function_by_color[1];
-        double last_depth_time = 1;
-        double current_depth_time;
-        double multiplier;
-        double estimated_next_time;
-        double last_eval = 0;
-        while (i <= depth_by_color[1]){
-            clock_t start_time = clock();
-            if (i < 6) {
-                NULL_MOVE_REDUCTION = 2;
-                MIN_NULL_MOVE = 2;
-            }
-            else {
-                NULL_MOVE_REDUCTION = 3;
-                MIN_NULL_MOVE = 2;
-            }
-            bot_move = get_best_move_black(the_game, i, last_eval - ASPIRATION_WINDOW, last_eval + ASPIRATION_WINDOW, ht);
-            last_eval = bot_move.eval;
-            change_in_no_of_moves = number_of_moves - initial_number_of_moves;
-            
-            clock_t end_time = clock();
-            current_depth_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-            // Update multiplier and estimate
-            multiplier = current_depth_time / last_depth_time;
-            estimated_next_time = current_depth_time * multiplier;
-            if (logs == 1) {
-                printf("best so far: ");
-                print_move(bot_move.m);
-                printf("number of moves: %ld\n", change_in_no_of_moves);
-                printf("depth = %d\n", i);
-                printf("time at this depth = %.3f sec\n", current_depth_time);
-                printf("estimated time for next depth = %.3f sec\n", estimated_next_time);
-            }
+        old_best_move = best_move;
 
-            last_depth_time = current_depth_time;
-            decay_history_heuristic(HISTORY_DECAY);
-            i++;
+        if (logs == 1) {
+            printf("best so far: "); print_move(best_move.m);
+            printf("depth = %d, moves this depth = %ld\n", i, moves_this_depth);
+            printf("time in this move = %.3f sec\n",
+                   current_depth_time);
         }
-        commit_a_move_in_game(the_game, bot_move.m);   
+
+        if (soft_duration_bound != -1 && current_depth_time > soft_duration_bound) {
+            if (logs == 1)
+                printf("Soft time limit exceeded, stopping search (time %.3f sec)\n", current_depth_time);
+            break;
+        }
+
+        decay_history_heuristic(HISTORY_DECAY);
+        i++;
     }
-    
-    if (logs != -1)  {
-        printf("eval: %lf\n", bot_move.eval);
-        print_board(the_board);}
-    if(ht->size >= 2000000) {
-        ht_clear(ht);
-        printf("Hash table cleared\n");
+    total_time = (double)(clock() - start_time) / CLOCKS_PER_SEC;
+    the_game->tc.time_left[color] -= total_time;
+
+    commit_a_move_in_game(the_game, best_move.m);
+
+    // Optional logging and hash table maintenance
+    if (logs != -1) { 
+        printf("eval: %lf\n", best_move.eval);
+        print_board(the_board);
     }
-    return bot_move.eval;
+    if(ht->size >= 2000000) { ht_clear(ht); printf("Hash table cleared\n"); }
+
+    // Restore increment
+    the_game->tc.time_left[color] += the_game->tc.increment[color];
+    return best_move.eval;
 }
 
 int check_endgame(game *the_game)
@@ -243,12 +239,17 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        else if (all_moves[0] == END) {
+        if (the_game->tc.time_left[1] <= 0) {
+            printf("WHITE WON ON TIMEOUT\n");
+            fflush(stdout);
+            return 0;
+        }
+        if (all_moves[0] == END) {
             printf("STALMATE 0.5-0.5\n");
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
+        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -262,12 +263,17 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        else if (all_moves[0] == END) {
+        if (the_game->tc.time_left[0] <= 0) {
+            printf("BLACK WON ON TIMEOUT\n");
+            fflush(stdout);
+            return 0;
+        }
+        if (all_moves[0] == END) {
             printf("STALMATE 0.5-0.5\n");
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
+        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -287,7 +293,10 @@ double who_won(game *the_game)
         if (is_lost(the_board, WHITE)) {
             return -1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
+        else if (the_game->tc.time_left[1] <= 0) {
+            return -1;
+        }
+        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -297,7 +306,10 @@ double who_won(game *the_game)
         if (is_lost(the_board, BLACK)) {
             return 1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game) || the_game->number_of_moves_in_game >= 300) {
+        else if (the_game->tc.time_left[0] <= 0) {
+            return 1;
+        }
+        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
             return 0;
         }
     }
@@ -458,6 +470,11 @@ void create_game(game *g, board *initial_position) {
     g->initial_position.whose_turn = initial_position->whose_turn;
     g->initial_position.hash = initial_position->hash;
 
+    /* Default time control: */
+    g->tc.time_left[0] = 100;
+    g->tc.time_left[1] = 100;
+    g->tc.increment[0] = -1;
+    g->tc.increment[1] = -1;
 }
 
 int load_weights(const char *filename, double *weights, int expected_count) {
@@ -584,12 +601,13 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
             while (1) {
                 bot_move(the_game, ht,0);
                 printf("move number: %d\n", the_game->number_of_moves_in_game);
+                if (the_game->tc.increment[0] != -1)
+                    printf("White time left: %.2f seconds, Black time left: %.2f seconds\n", the_game->tc.time_left[0], the_game->tc.time_left[1]);
                 if (!check_endgame(the_game)) {
                     is_game_on = 0;
                     break;
                 }
             }
-            
         }
         else {
             printf("Game not started. (use newgame to start a new game)\n");
@@ -599,11 +617,9 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
     {
         char *posline = line + 5;
         player_move(the_game,posline);
-        if (!check_endgame(the_game)) {
-            is_game_on = 0;
-        }
         print_board(the_game->current_position);
         print_board_string(the_game->current_position);
+        check_endgame(the_game);
     }
     if (!strncmp (line, "mg", 2))
     {

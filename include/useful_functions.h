@@ -154,7 +154,7 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf);
 
 void unmake_move_in_game(game *the_game, move m, irreversible_move_info inf);
 
-char check_repetition(game *the_game);
+char check_repetition(game *the_game, char is_in_search);
 
 void selection_sort_for_moves(move moves[MAX_POSSIBLE_MOVES / 2], double *values, int k);
 

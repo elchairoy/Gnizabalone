@@ -222,7 +222,7 @@ void unmake_move_in_board(board *the_board, move m, irreversible_move_info inf) 
 
 
 /* Check if the game is a draw by repetition: */
-char check_repetition(game *the_game) {
+char check_repetition(game *the_game, char is_in_search) {
     board temp = the_game->initial_position;
     int i;
     int number_of_repetitions = 0;
@@ -232,7 +232,7 @@ char check_repetition(game *the_game) {
             number_of_repetitions++;
         }
     }
-    if (number_of_repetitions >= 2) {
+    if (number_of_repetitions >= 2 + !is_in_search) { // while in search, even the first repetition is a draw. this helps preventing TT problems and it pruns some nodes, with not much downside.
         return 1;
     }
     else
