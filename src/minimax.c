@@ -524,7 +524,7 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     is_quiescence = 1;
     Q_DEPTH = 10;
     is_nms = 1;
-    is_ht_search = 1;
+    is_ht_search = 0;
 
     
     

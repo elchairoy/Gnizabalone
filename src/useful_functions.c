@@ -495,7 +495,7 @@ int three_in_a_row_helping_score(board *b, move m) {
 
 static int initializer = 0;
 double get_random(double value) {
-    return value; // for now, disable randomness
+    //return value; // for now, disable randomness
     initializer++;
     // Generate a random number between -1 and 1
     double random = (double)rand() / RAND_MAX;

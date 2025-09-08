@@ -14,5 +14,6 @@
 #define FEATURE_COUNT 12
 
 double evaluate(board *b, char color);
+void get_features2(board* b, char color, double* features);
 
 #endif /* DF067538_D9C3_4DB6_9FA4_0090105C00B0 */
