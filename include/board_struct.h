@@ -21,7 +21,7 @@ enum types {empty, black_marble, white_marble}; /* The types of marbs. */
 
 typedef unsigned int move;
 
-enum node_type {PV_NODE, FAIL_HIGH, FAIL_LOW}; /* The type of a node. */
+enum node_type {PV_NODE, FAIL_HIGH, FAIL_LOW, NO_TIME}; /* The type of a node. */
 
 typedef unsigned int irreversible_move_info; 
 
@@ -57,6 +57,11 @@ enum directions {LEFT, UP_LEFT, UP_RIGHT, RIGHT, DOWN_RIGHT, DOWN_LEFT}; /* The 
      get_is_up_right_down_left_of((r1), (c1), (r2), (c2)) || \
      get_is_up_left_down_right_of((r1), (c1), (r2), (c2)))
 
+typedef struct {
+    double time_left[2]; /* Time left for white and black in seconds. */
+    double increment[2]; /* Increment for white and black in seconds. -1 means no limit of time. */
+}time_control;
+
 /* The struct of a game: */
 typedef struct {
     board *current_position; /* The current position of the game. */
@@ -64,6 +69,7 @@ typedef struct {
     move moves[1000]; /* List of all the moves in the game. */
     int number_of_moves_in_game; /* Number of moves in the game. */
     char result; /* The result of the game. */
+    time_control tc; /* The time control of the game. */
 }game;
 
 
