@@ -385,9 +385,11 @@ size_t _ht_get_hash(void *key) {
 	return board_hash ^ type_hash;
 }
 
+#define HT_USING_POWER_OF_TWO
+
 size_t _ht_hash(const HashTable* table, void* key) {
 #ifdef HT_USING_POWER_OF_TWO
-	return table->hash(key, table->key_size) & table->capacity;
+	return table->hash(key, table->key_size) & (table->capacity - 1);
 #else
 	return table->hash(key, table->key_size) % table->capacity;
 #endif

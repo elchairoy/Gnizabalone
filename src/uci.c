@@ -2,7 +2,7 @@
 #include "evaluation.h"
 
 extern long int number_of_moves;
-extern long int number_of_ht_found;
+extern long int number_of_ht_inserted;
 extern char evaluation_function_number;
 
 extern int history_heuristic_push[2*RADIUS - 1][2*RADIUS - 1][6];
@@ -115,6 +115,93 @@ int player_move(game *the_game, const char *str)
     }
 }
 
+void print_pv(game *the_game, char depth, HashTable *ht) {
+    // This uses the TT to collect the princple variation. 
+    if (depth == 0)
+        return;
+    char color = the_game->current_position->whose_turn;
+    move m;
+    irreversible_move_info inf;
+    if (color == WHITE)
+        m = get_best_move_white(the_game, depth, -200,
+                                        200, ht).m;
+    else
+        m = get_best_move_black(the_game, depth, -200,
+                                        200, ht).m;
+    printf(" ");
+    print_move(m);
+    inf = get_irrev_move_info(the_game->current_position, m);
+    commit_a_move_in_game(the_game, m);
+    print_pv(the_game, depth - 1, ht);
+    unmake_move_in_game(the_game, m, inf);
+}
+
+static char is_decending;
+int cmp_move_eval(const void *a, const void *b) {
+    double ea = ((minimax_eval*)a)->eval;
+    double eb = ((minimax_eval*)b)->eval;
+    if (ea > eb) return -1 * is_decending;  // sort descending
+    if (ea < eb) return 1 * is_decending;
+    return 0;
+}
+
+void print_analysis(game *the_game, char depth, char k, HashTable *ht)
+{
+    board *the_board = the_game->current_position;
+    move all_moves[MAX_POSSIBLE_MOVES];
+    get_possible_moves(the_board, all_moves);
+
+    minimax_eval evals[MAX_POSSIBLE_MOVES];
+    evaluation_function_number = 2;
+
+    int n = 0;
+    for (int i = 0; all_moves[i] != END; i++) {  // assuming invalid moves marked with from=-1
+        // commit move
+        irreversible_move_info inf = get_irrev_move_info(the_board, all_moves[i]);
+        commit_a_move_in_game(the_game, all_moves[i]);
+        int color = the_board->whose_turn;
+
+        // run minimax depending on color
+        minimax_eval result;
+        if (color == WHITE) {
+            result = get_best_move_white(the_game, depth - 1, -200, 200, ht);
+        }
+        else {
+            result = get_best_move_black(the_game, depth - 1, -200, 200, ht);
+        }
+
+        // undo move
+        unmake_move_in_game(the_game, all_moves[i], inf);
+
+        evals[n].m = all_moves[i];
+        evals[n].eval = result.eval;
+        n++;
+    }
+
+    // sort by eval
+    if (the_board->whose_turn == WHITE)
+        is_decending = 1;
+    else 
+        is_decending = -1;
+    qsort(evals, n, sizeof(minimax_eval), cmp_move_eval);
+
+    // print best k
+    int limit = (k < n ? k : n);
+    for (int i = 0; i < limit; i++) {
+        printf("%d) ", i + 1);
+        print_move(evals[i].m);
+        printf(" eval: %.3f\n", evals[i].eval);
+
+        // print PV starting from this move
+        irreversible_move_info inf = get_irrev_move_info(the_board, evals[i].m);
+        commit_a_move_in_game(the_game, evals[i].m);
+        print_pv(the_game, depth - 1, ht);
+        unmake_move_in_game(the_game, evals[i].m, inf);
+        printf("\n");
+    }
+}
+
+
 double get_max_duration(game *the_game) {
     /* After this amount of time he would stop the search and return the move. */
     double remaining_time = the_game->tc.time_left[the_game->current_position->whose_turn];
@@ -195,7 +282,7 @@ double bot_move(game *the_game, HashTable *ht, char logs)
         old_best_move = best_move;
 
         if (logs == 1) {
-            printf("best so far: "); print_move(best_move.m);
+            printf("best so far: "); print_move(best_move.m); printf("\n");
             printf("depth = %d, moves this depth = %ld\n", i, moves_this_depth);
             printf("time in this move = %.3f sec\n",
                    current_depth_time);
@@ -213,6 +300,12 @@ double bot_move(game *the_game, HashTable *ht, char logs)
     total_time = (double)(clock() - start_time) / CLOCKS_PER_SEC;
     the_game->tc.time_left[color] -= total_time;
 
+    if (logs >= 0) {
+        printf("princple variation:");
+        print_pv(the_game, i - 1, ht);
+        printf("\n");
+    }
+
     commit_a_move_in_game(the_game, best_move.m);
 
     // Optional logging and hash table maintenance
@@ -220,7 +313,7 @@ double bot_move(game *the_game, HashTable *ht, char logs)
         printf("eval: %lf\n", best_move.eval);
         print_board(the_board);
     }
-    if(ht->size >= 2000000) { ht_clear(ht); printf("Hash table cleared\n"); }
+    if(ht->size >= HT_CAPACITY) { ht_clear(ht); printf("Hash table cleared\n"); }
 
     // Restore increment
     the_game->tc.time_left[color] += the_game->tc.increment[color];
@@ -239,7 +332,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[1] <= 0) {
+        if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             printf("WHITE WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -263,7 +356,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[0] <= 0) {
+        if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             printf("BLACK WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -293,7 +386,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, WHITE)) {
             return -1;
         }
-        else if (the_game->tc.time_left[1] <= 0) {
+        else if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             return -1;
         }
         else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
@@ -306,7 +399,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, BLACK)) {
             return 1;
         }
-        else if (the_game->tc.time_left[0] <= 0) {
+        else if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             return 1;
         }
         else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
@@ -583,7 +676,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         if (is_game_on) {
             //print_board(the_game->current_position);
             if (line[2] != '\0' && line[2] != '\n')
-                depth_by_color[!(the_game->current_position->whose_turn)] = line[3] - '0';
+                depth_by_color[(the_game->current_position->whose_turn)] = line[3] - '0';
             bot_move(the_game, ht,1);
             print_board_string(the_game->current_position);
             //print_board(the_game->current_position);
@@ -674,13 +767,13 @@ int main()
     char is_game_on = 0;
     
     /* Initialize ht: */ 
-    ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),2000000);
+    ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),HT_CAPACITY);
 
     load_weights("weights_A.txt", self_play_weights1, WEIGHT_COUNT);
     load_weights("weights_B.txt", self_play_weights2, WEIGHT_COUNT); // best one.
     load_weights("weights_C.txt", self_play_weights3, WEIGHT_COUNT);
-    eval_function_by_color[0] = 5;
-    eval_function_by_color[1] = 5;
+    eval_function_by_color[0] = 2;
+    eval_function_by_color[1] = 2;
     srand(time(NULL)); // Seed the random number generator
 
      

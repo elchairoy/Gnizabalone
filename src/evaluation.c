@@ -363,21 +363,21 @@ double evaluate_nn2(board *b, char color) {
 
 double evaluate_nn3(board *b, char color) {
     double features[12];
-    get_features(b, color, features);
-    return (get_nn1_output(features, self_play_weights3));
+    get_features2(b, color, features);
+    return (get_nn2_output(features, self_play_weights3));
 }
 
 /******************************************************************************************************************************************************************************* */
 
 /* Evaluation function: returns score from white's perspective */
 double evaluate(board* b, char color) {
-    if (evaluation_function_number == 4) {
+    if (evaluation_function_number == 1) {
         return evaluate_nn1(b, color);
     }
-    else if (evaluation_function_number == 5) {
+    else if (evaluation_function_number == 2) {
         return evaluate_nn2(b, color);
     }
-    else if (evaluation_function_number == 6) {
+    else if (evaluation_function_number == 3) {
         return evaluate_nn3(b, color);
     }
     else {

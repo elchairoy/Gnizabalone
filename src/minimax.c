@@ -77,7 +77,7 @@ void decay_history_heuristic(double decay) {
 
 
 clock_t start_time;
-double max_duration; /* The maximum duration of the search in seconds. -1 means no limit. */
+double max_duration = -1; /* The maximum duration of the search in seconds. -1 means no limit. */
 
 // This function performs a quiescence search for the black player.
 minimax_eval quiescence_search_black(game *the_game, double alpha, double beta, char depth, HashTable *ht) {
@@ -528,6 +528,8 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
     return temp;
 }
 
+extern char is_comparing;
+
 /* The main function of minimax for white, returns the best move of the position. */
 minimax_eval get_best_move_white(game *the_game, char depth, double alpha, double beta, HashTable *ht) {
     board *b = the_game->current_position;
@@ -543,7 +545,7 @@ minimax_eval get_best_move_white(game *the_game, char depth, double alpha, doubl
     is_quiescence = 1;
     Q_DEPTH = 10;
     is_nms = 1;
-    is_ht_search = 1;
+    is_ht_search = 1; /* When comparing agents we dont want to use ht, so no data sharing. */
 
     
     
