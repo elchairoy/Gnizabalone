@@ -583,7 +583,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         if (is_game_on) {
             //print_board(the_game->current_position);
             if (line[2] != '\0' && line[2] != '\n')
-                depth_by_color[!(the_game->current_position->whose_turn)] = line[3] - '0';
+                depth_by_color[(the_game->current_position->whose_turn)] = line[3] - '0';
             bot_move(the_game, ht,1);
             print_board_string(the_game->current_position);
             //print_board(the_game->current_position);
