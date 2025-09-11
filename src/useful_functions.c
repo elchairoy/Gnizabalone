@@ -57,26 +57,6 @@ char compare_boards(board *board1, board *board2){
 }
 
 
-void print_move(move the_move){
-    char src_row = get_src_row(the_move), src_col = get_src_col(the_move);
-    char end_of_line_row = get_end_of_line_row(the_move), end_of_line_col = get_end_of_line_col(the_move);
-    enum directions direction  = get_direction(the_move);  
-    char *direction_str;
-    switch (direction) {
-        case LEFT: direction_str = "LEFT"; break;
-        case UP_LEFT: direction_str = "UP_LEFT"; break;
-        case UP_RIGHT: direction_str = "UP_RIGHT"; break;
-        case RIGHT: direction_str = "RIGHT"; break;
-        case DOWN_RIGHT: direction_str = "DOWN_RIGHT"; break;
-        case DOWN_LEFT: direction_str = "DOWN_LEFT"; break;
-        default: direction_str = "UNKNOWN"; break;
-    }
-    if (get_move_type(the_move) == ASIDE) {
-        printf("Move: (%d,%d)(%d,%d) %s \n", src_row, src_col, end_of_line_row, end_of_line_col, direction_str);
-    } else {
-        printf("Move: (%d,%d) %s\n", src_row, src_col, direction_str);
-    }
-    ;}
 
 
 
@@ -142,6 +122,19 @@ void print_board(board *the_board){
         printf(" ");
     }
     printf("\n");
+}
+
+void print_move(move the_move){
+    char src_row = get_src_row(the_move), src_col = get_src_col(the_move);
+    char end_of_line_row = get_end_of_line_row(the_move), end_of_line_col = get_end_of_line_col(the_move);
+    enum directions direction  = get_direction(the_move);  
+    char dst_row = end_of_line_row, dst_col = end_of_line_col;
+    get_new_cords_in_direction(&dst_row, &dst_col, direction, 1);
+    char src[4]; 
+    strcpy(src, cord_to_label(src_row, src_col));
+    char dst[4];
+    strcpy(dst, cord_to_label(dst_row, dst_col));
+    printf("%s%s", src, dst);
 }
 
 
@@ -500,7 +493,7 @@ double get_random(double value) {
     // Generate a random number between -1 and 1
     double random = (double)rand() / RAND_MAX;
     // now scale it to be up to 5% of the value
-    random = (random * 2 - 1) * value * 0.005; // Scale to -0.05*value to 0.05*value
+    random = (random * 2 - 1) * value * 0.0005; // Scale to -0.05*value to 0.05*value
     return value + random; // Add the random value to the original value
 }
 

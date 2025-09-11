@@ -9,11 +9,12 @@ import torch.optim as optim
 FEATURE_COUNT = 12
 MODEL_CHECKPOINT = "abalone_eval_selfplay.pth"
 EVALS_FILE = "evals.txt"
+DATA_FILE = "all_games_depth_2.csv"
 
 # Training hyperparameters
 I = 10          # TD horizon
 LR = 0.01       # Learning rate
-LEN = 2_000_000 # Max dataset length
+LEN = 200_000 # Max dataset length
 
 
 class FeatureEvaluator(nn.Module):
@@ -46,6 +47,13 @@ def save_model_weights_to_file(model, filename):
         weights.extend(param.detach().cpu().numpy().flatten())
     np.savetxt(filename, weights)
 
+def clean_dataset_file(path):
+    # This deletes all the lines, except the header (f0,...,f11,target)
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    with open(path, 'w') as f:
+        f.write(lines[0])
+    print(f"Cleaned dataset file {path}, kept only header.")    
 
 def load_td_training_data(td_csv_file=EVALS_FILE, feature_count=FEATURE_COUNT, gamma=1, alpha=1):
     if not Path(td_csv_file).exists():
@@ -170,7 +178,7 @@ def train_td_model(model_class=FeatureEvaluator,
 
 def generate_evals_file(model_class=FeatureEvaluator,
                         model_checkpoint=MODEL_CHECKPOINT,
-                        data_file="all_games_depth_2.csv",
+                        data_file=DATA_FILE,
                         output_file=EVALS_FILE):
     model = model_class()
     if not Path(model_checkpoint).exists():
@@ -203,15 +211,78 @@ def generate_evals_file(model_class=FeatureEvaluator,
 
 
 def selfplay_training_loop():
-    for i in range(2):  # two-phase LR schedule
+    generate_evals_file()
+    for i in range(4):  # two-phase LR schedule
         lr = 0.01 if i == 0 else 0.001
         train_td_model(model_class=FeatureEvaluator,
                        evals_file=EVALS_FILE,
                        epochs=30,
                        batch_size=1024,
                        lr=lr)
+        
 
+import subprocess
+import shutil
+import time
+from concurrent.futures import ProcessPoolExecutor
+
+def run_engine_command(engine_path, command):
+    """Run the engine with a single command and return stdout."""
+    result = subprocess.run(
+        [engine_path],
+        input=command.encode(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    return result.stdout.decode(errors="ignore")
+
+# --- New helper for selfplay ---
+def run_selfplay(engine_path):
+    return run_engine_command(engine_path, "selfplay\n")
+
+def full_auto_training():
+    ENGINE_PATH = "./bin/Gnizabalone.exe"
+    WEIGHTS_A = "weights_A.txt"
+    WEIGHTS_C = "weights_C.txt"
+
+    while True:
+        is_changed = 0
+        i = 0
+
+        clean_dataset_file(DATA_FILE)
+        print("=== Starting self-play phase (10 parallel processes) ===")
+        with ProcessPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(run_selfplay, [ENGINE_PATH] * 10))
+        for i, out in enumerate(results, 1):
+            print(f"[Selfplay {i}] {out.strip()}")
+
+        while (is_changed * i < 10):
+            print("=== Training on generated games ===")
+            # Train the model on the current game file
+            # (assumes you already have a function defined for this)
+            selfplay_training_loop()  
+
+            print("=== Comparing weights ===")
+            out = run_engine_command(ENGINE_PATH, "compare\n")
+            print(out.strip())
+
+            if "NEW BEST" in out:
+                print(">>> Updating current weights (A → C)")
+                shutil.copyfile(WEIGHTS_A, WEIGHTS_C)
+                is_changed += 1
+                i = 0
+            else:
+                shutil.copyfile(WEIGHTS_C, WEIGHTS_A)
+
+            i += 1
+
+
+        
+
+
+
+
+    
 
 if __name__ == "__main__":
-    generate_evals_file()
-    selfplay_training_loop()
+    full_auto_training()

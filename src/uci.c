@@ -8,6 +8,11 @@ extern char evaluation_function_number;
 extern int history_heuristic_push[2*RADIUS - 1][2*RADIUS - 1][6];
 extern int history_heuristic_aside[2*RADIUS - 1][2*RADIUS - 1][6][2*RADIUS - 1][2*RADIUS - 1];
 
+extern double self_play_weights1[WEIGHT_COUNT];
+extern double self_play_weights2[WEIGHT_COUNT];
+extern double self_play_weights3[WEIGHT_COUNT];
+
+
 /* From location (e2) to number (12): */
 #define get_square_number(column, row) ((row - '0' - 1) * 8 + (column - 'a'))
 /* From number(12) to location (e2): */
@@ -115,6 +120,92 @@ int player_move(game *the_game, const char *str)
     }
 }
 
+void print_pv(game *the_game, char depth, HashTable *ht) {
+    if (depth == 0)
+        return;
+    char color = the_game->current_position->whose_turn;
+    move m;
+    irreversible_move_info inf;
+    if (color == WHITE)
+        m = get_best_move_white(the_game, depth, -200,
+                                        200, ht).m;
+    else
+        m = get_best_move_black(the_game, depth, -200,
+                                        200, ht).m;
+    printf(" ");
+    print_move(m);
+    inf = get_irrev_move_info(the_game->current_position, m);
+    commit_a_move_in_game(the_game, m);
+    print_pv(the_game, depth - 1, ht);
+    unmake_move_in_game(the_game, m, inf);
+}
+
+static char is_decending;
+int cmp_move_eval(const void *a, const void *b) {
+    double ea = ((minimax_eval*)a)->eval;
+    double eb = ((minimax_eval*)b)->eval;
+    if (ea > eb) return -1 * is_decending;  // sort descending
+    if (ea < eb) return 1 * is_decending;
+    return 0;
+}
+
+void print_analysis(game *the_game, char depth, char k, HashTable *ht)
+{
+    board *the_board = the_game->current_position;
+    move all_moves[MAX_POSSIBLE_MOVES];
+    get_possible_moves(the_board, all_moves);
+
+    minimax_eval evals[MAX_POSSIBLE_MOVES];
+    evaluation_function_number = 2;
+
+    int n = 0;
+    for (int i = 0; all_moves[i] != END; i++) {  // assuming invalid moves marked with from=-1
+        // commit move
+        irreversible_move_info inf = get_irrev_move_info(the_board, all_moves[i]);
+        commit_a_move_in_game(the_game, all_moves[i]);
+        int color = the_board->whose_turn;
+
+        // run minimax depending on color
+        minimax_eval result;
+        if (color == WHITE) {
+            result = get_best_move_white(the_game, depth - 1, -200, 200, ht);
+        }
+        else {
+            result = get_best_move_black(the_game, depth - 1, -200, 200, ht);
+        }
+
+        // undo move
+        unmake_move_in_game(the_game, all_moves[i], inf);
+
+        evals[n].m = all_moves[i];
+        evals[n].eval = result.eval;
+        n++;
+    }
+
+    // sort by eval
+    if (the_board->whose_turn == WHITE)
+        is_decending = 1;
+    else 
+        is_decending = -1;
+    qsort(evals, n, sizeof(minimax_eval), cmp_move_eval);
+
+    // print best k
+    int limit = (k < n ? k : n);
+    for (int i = 0; i < limit; i++) {
+        printf("%d) ", i + 1);
+        print_move(evals[i].m);
+        printf(" eval: %.3f\n", evals[i].eval);
+
+        // print PV starting from this move
+        irreversible_move_info inf = get_irrev_move_info(the_board, evals[i].m);
+        commit_a_move_in_game(the_game, evals[i].m);
+        print_pv(the_game, depth - 1, ht);
+        unmake_move_in_game(the_game, evals[i].m, inf);
+        printf("\n");
+    }
+}
+
+
 double get_max_duration(game *the_game) {
     /* After this amount of time he would stop the search and return the move. */
     double remaining_time = the_game->tc.time_left[the_game->current_position->whose_turn];
@@ -195,7 +286,7 @@ double bot_move(game *the_game, HashTable *ht, char logs)
         old_best_move = best_move;
 
         if (logs == 1) {
-            printf("best so far: "); print_move(best_move.m);
+            printf("best so far: "); print_move(best_move.m); printf("\n");
             printf("depth = %d, moves this depth = %ld\n", i, moves_this_depth);
             printf("time in this move = %.3f sec\n",
                    current_depth_time);
@@ -212,6 +303,12 @@ double bot_move(game *the_game, HashTable *ht, char logs)
     }
     total_time = (double)(clock() - start_time) / CLOCKS_PER_SEC;
     the_game->tc.time_left[color] -= total_time;
+
+    if (logs > 0) {
+        printf("princple variation:");
+        print_pv(the_game, i - 1, ht);
+        printf("\n");
+    }
 
     commit_a_move_in_game(the_game, best_move.m);
 
@@ -239,7 +336,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[1] <= 0) {
+        if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             printf("WHITE WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -263,7 +360,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[0] <= 0) {
+        if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             printf("BLACK WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -293,7 +390,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, WHITE)) {
             return -1;
         }
-        else if (the_game->tc.time_left[1] <= 0) {
+        else if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             return -1;
         }
         else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
@@ -306,7 +403,7 @@ double who_won(game *the_game)
         if (is_lost(the_board, BLACK)) {
             return 1;
         }
-        else if (the_game->tc.time_left[0] <= 0) {
+        else if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             return 1;
         }
         else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
@@ -384,7 +481,7 @@ void regualr_opening(board *b) {
     change_the_square(b, -4, 1, black_marble);
     change_the_square(b, -3, 1, black_marble);
     change_the_square(b, -2, 1, black_marble);
-    change_the_square(b, -4, 2, black_marble);
+    change_the_square(b, -4, 4, black_marble);
     change_the_square(b, -3, 2, black_marble);
     change_the_square(b, -2, 2, black_marble);
     change_the_square(b, -4, 3, black_marble);
@@ -399,7 +496,7 @@ void regualr_opening(board *b) {
     change_the_square(b, 4, -1, white_marble);
     change_the_square(b, 3, -1, white_marble);
     change_the_square(b, 2, -1, white_marble);
-    change_the_square(b, 4, -2, white_marble);
+    change_the_square(b, 4, -3, white_marble);
     change_the_square(b, 3, -2, white_marble);
     change_the_square(b, 2, -2, white_marble);
     change_the_square(b, 4, -3, white_marble);
@@ -433,14 +530,14 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, 3, -3, white_marble);
     change_the_square(b, 3, -4, white_marble);
     change_the_square(b, 4, -3, white_marble);
-    change_the_square(b, 4, -4, white_marble);
+    change_the_square(b, 2, -4, white_marble);
     change_the_square(b, -2, 2, white_marble);
     change_the_square(b, -2, 3, white_marble);
     change_the_square(b, -3, 2, white_marble);
     change_the_square(b, -3, 3, white_marble);
     change_the_square(b, -3, 4, white_marble);
     change_the_square(b, -4, 3, white_marble);
-    change_the_square(b, -4, 4, white_marble);
+    change_the_square(b, -2, 4, white_marble);
 
     b->hash = _ht_default_hash(b);
 }
@@ -477,22 +574,58 @@ void create_game(game *g, board *initial_position) {
     g->tc.increment[1] = -1;
 }
 
-int load_weights(const char *filename, double *weights, int expected_count) {
+int load_weights_set(const char *filename, double *weights, int expected_count, int set_index) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Failed to open weight file");
         return -1;
     }
 
+    char line[1024];
+    int current_set = 0;
     int i = 0;
-    while (i < expected_count && fscanf(file, "%lf", &weights[i]) == 1) {
-        i++;
+    int reading_set = 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        // Skip lines that are only whitespace
+        int only_space = 1;
+        for (char *p = line; *p; p++) {
+            if (!isspace(*p)) {
+                only_space = 0;
+                break;
+            }
+        }
+
+        if (only_space) {
+            // Empty line indicates new set
+            if (reading_set) {
+                break; // Finished reading desired set
+            } else {
+                current_set++;
+                continue;
+            }
+        }
+
+        if (current_set == set_index) {
+            reading_set = 1;
+            if (i >= expected_count) {
+                fprintf(stderr, "Error: too many weights in set %d\n", set_index);
+                fclose(file);
+                return -1;
+            }
+            if (sscanf(line, "%lf", &weights[i]) != 1) {
+                fprintf(stderr, "Error: invalid number in set %d\n", set_index);
+                fclose(file);
+                return -1;
+            }
+            i++;
+        }
     }
 
     fclose(file);
 
     if (i != expected_count) {
-        fprintf(stderr, "Error: expected %d weights, but got %d\n", expected_count, i);
+        fprintf(stderr, "Error: expected %d weights in set %d, but got %d\n", expected_count, set_index, i);
         return -1;
     }
 
@@ -500,6 +633,420 @@ int load_weights(const char *filename, double *weights, int expected_count) {
 }
 
 
+
+typedef struct {
+    double features[12]; // Assuming 9 features
+    double target;      // The game result from this position
+} Position;
+typedef struct {
+    Position *positions;
+    int num_positions;
+} Dataset;
+
+
+
+void add_dataset_to_file(const char *filename, Dataset *ds) {
+    FILE *fp = fopen(filename, "a");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    for (int i = 0; i < ds->num_positions; i++) {
+        fprintf(fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
+                ds->positions[i].features[0], ds->positions[i].features[1],
+                ds->positions[i].features[2], ds->positions[i].features[3],
+                ds->positions[i].features[4], ds->positions[i].features[5],
+                ds->positions[i].features[6], ds->positions[i].features[7],
+                ds->positions[i].features[8], ds->positions[i].features[9],
+                ds->positions[i].features[10], ds->positions[i].features[11],
+                ds->positions[i].target);
+    }
+    fprintf(fp, "-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1\n"); // End of dataset marker
+    fclose(fp);
+}
+
+void save_boardstring_to_file(const char *filename, char boardstrings[][64], int num_positions) {
+    FILE *fp = fopen(filename, "a");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+    for (int i = 0; i < num_positions; i++) {
+        fprintf(fp, "%s\n", boardstrings[i]);
+    }
+    fclose(fp);
+}
+
+
+int line_counter = 0;
+double simulate_number_of_games(HashTable *ht, char depth, int number_of_games, char is_new_game) {
+    /* Simulate a number of games and return the average score */
+    // This version uses a random starting position from test_positions.txt
+    double total_score = 0.0;
+    depth_by_color[0] = depth;
+    depth_by_color[1] = depth; 
+    double score;
+    int j; 
+    Dataset *ds = malloc(sizeof(Dataset));
+    ds->positions = malloc(sizeof(Position) * 10000);
+    ds->num_positions = 0;
+    double features[12];
+    char boardstrings[MAX_POSSIBLE_MOVES][64];
+    for (int i = 0; i < number_of_games; i++) {
+        game the_game;
+        memset(&the_game, 0, sizeof(game));
+        board init;
+        memset(&init, 0, sizeof(board));
+        init_empty_board(&init);
+        char boardstring[100];
+        int i = 0;
+        line_counter++;
+        FILE *fp = fopen("shuffled_boardstrings.txt", "r");
+        while (i < line_counter) {
+            fgets(boardstring, sizeof(boardstring), fp);
+            i++;
+        }
+        boardstring[61] = rand() % 2 == 0 ? 'W' : 'B';
+        boardstring[62] = '\0';
+        board_string_to_board(&init, boardstring);
+        if (is_new_game) {
+            memset(&init, 0, sizeof(board));
+            init_empty_board(&init);
+            belgian_daisy_opening(&init);
+        }
+        create_game(&the_game, &init);
+
+        for (j = 0; j < MAX_POSSIBLE_MOVES; j++) {
+            get_features2(the_game.current_position, the_game.current_position->whose_turn, features);
+            get_board_string(the_game.current_position, boardstrings[j]);
+            memcpy(ds->positions[ds->num_positions].features, features, sizeof(ds->positions[ds->num_positions].features));
+            ds->num_positions++;
+            bot_move(&the_game, ht, -1);
+            if (check_endgame(&the_game) == 0) {
+                break;
+            }
+        }
+        score = who_won(&the_game);
+        total_score += score;
+        for (int k = 0; k < ds->num_positions; k++) {
+            ds->positions[k].target = score;
+        }
+    }
+    if (!is_new_game) {
+        add_dataset_to_file("all_games_depth_2.csv", ds);
+        save_boardstring_to_file("all_boardstrings_2.txt", boardstrings, j);
+    }
+    return total_score;
+}
+
+
+void selfplay(HashTable *ht, int number_of_games, char depth) {
+    // This function plays a number of games against itself and saves the features to a file
+    for (int i = 0; i < number_of_games; i++) {
+        eval_function_by_color[0] = 3;
+        eval_function_by_color[1] = 3;
+        double score = simulate_number_of_games(ht, depth, 1, 0);
+    }
+}
+
+void get_features_and_evals_from_boardstrings_file(const char *input_filename, const char *output_filename) {
+    FILE *fp = fopen(input_filename, "r");
+    if (!fp) {
+        perror("Failed to open input file");
+        return;
+    }
+    char line[100];
+    FILE *out_fp = fopen(output_filename, "w");
+    if (!out_fp) {
+        perror("Failed to open output file");
+        fclose(fp);
+        return;
+    }
+    board b;
+    double features[12];
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
+        line[61] = 'B';
+        line[62] = '\0';
+        board_string_to_board(&b, line);
+        get_features2(&b, b.whose_turn, features);
+        fprintf(out_fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
+                features[0], features[1], features[2], features[3],
+                features[4], features[5], features[6], features[7],
+                features[8], features[9], features[10], features[11]);
+        evaluation_function_number = 2;
+        double eval = evaluate(&b, b.whose_turn);
+        fprintf(out_fp, ",%lf\n", eval);
+        count++;
+        if (count % 1000 == 0) {
+            printf("Processed %d positions\n", count);
+            fflush(stdout);
+        }
+    }
+}
+
+void get_intresting_positions() {
+    // use all_boardstrings.txt to get the eval of each position and if it's close to 0, save it to a file (test_positions.txt)
+    FILE *fp = fopen("all_boardstrings.txt", "r");
+    if (!fp) {
+        perror("Failed to open input file");
+        return;
+    }
+    char line[100];
+    FILE *out_fp = fopen("test_positions.txt", "w");
+    if (!out_fp) {
+        perror("Failed to open output file");
+        fclose(fp);
+        return;
+    }
+    board b;
+    int count = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        // Remove newline character
+        line[strcspn(line, "\n")] = 0;
+        line[61] = 'B';
+        line[62] = '\0';
+        board_string_to_board(&b, line);
+        evaluation_function_number = 2;
+        double eval = evaluate(&b, b.whose_turn);
+        if (eval > -0.1 && eval < 0.1 && rand() % 10 == 0) {
+            fprintf(out_fp, "%s\n", line);
+            count++;
+        }
+        if (count % 1000 == 0) {
+            printf("Found %d intresting positions\n", count);
+            fflush(stdout);
+        }
+    }
+}
+
+#define MAX_SETS 10
+#define RATING_FILE "ratings.txt"
+
+// ELO update constants
+#define K 32
+
+// Load ratings if file exists, otherwise initialize to 1000
+void load_ratings(double *ratings, int num_sets) {
+    FILE *f = fopen(RATING_FILE, "r");
+    if (f) {
+        for (int i = 0; i < num_sets; i++) {
+            if (fscanf(f, "%lf", &ratings[i]) != 1) {
+                ratings[i] = 1000.0;
+            }
+        }
+        fclose(f);
+    } else {
+        for (int i = 0; i < num_sets; i++)
+            ratings[i] = 1000.0;
+    }
+}
+
+// Save ratings to file
+void save_ratings(double *ratings, int num_sets) {
+    FILE *f = fopen(RATING_FILE, "w");
+    if (!f) {
+        perror("Failed to save ratings");
+        return;
+    }
+    for (int i = 0; i < num_sets; i++)
+        fprintf(f, "%.1f\n", ratings[i]);
+    fclose(f);
+}
+
+#include <sys/stat.h>
+#include <time.h>
+
+void assign_elo_for_file(const char *filename, int num_sets, HashTable *ht) {
+    double weights[MAX_SETS][WEIGHT_COUNT];
+    double ratings[MAX_SETS];
+
+    // Record file modification time at start
+    struct stat file_stat_start;
+    if (stat(filename, &file_stat_start) != 0) {
+        perror("stat failed");
+        return;
+    }
+    time_t mtime_start = file_stat_start.st_mtime;
+
+    // Load existing ratings or initialize
+    load_ratings(ratings, num_sets);
+
+    // Load all weight sets
+    for (int i = 0; i < num_sets; i++) {
+        if (load_weights_set(filename, weights[i], WEIGHT_COUNT, i) != 0) {
+            fprintf(stderr, "Failed to load set %d\n", i);
+            return;
+        }
+    }
+
+    eval_function_by_color[0] = 2;
+    eval_function_by_color[1] = 1;
+
+    // Round-robin matches
+    for (int i = 0; i < num_sets; i++) {
+        for (int j = i + 1; j < num_sets; j++) {
+            // Player i as white, j as black
+            memcpy(self_play_weights1, weights[i], sizeof(double) * WEIGHT_COUNT);
+            memcpy(self_play_weights2, weights[j], sizeof(double) * WEIGHT_COUNT);
+            double score_i_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
+
+            // Player j as white, i as black
+            memcpy(self_play_weights1, weights[j], sizeof(double) * WEIGHT_COUNT);
+            memcpy(self_play_weights2, weights[i], sizeof(double) * WEIGHT_COUNT);
+            double score_j_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
+
+            // Compute ELO update
+            double expected_i = 1.0 / (1.0 + pow(10.0, (ratings[j] - ratings[i]) / 400.0));
+            double actual_i = (score_i_white + (1 - score_j_white)) / 2.0;
+            double actual_j = 1.0 - actual_i;
+
+            ratings[i] += K * (actual_i - expected_i);
+            ratings[j] += K * (actual_j - (1.0 / (1.0 + pow(10.0, (ratings[i] - ratings[j]) / 400.0))));
+        }
+    }
+
+    // Check if file changed during execution
+    struct stat file_stat_end;
+    if (stat(filename, &file_stat_end) != 0) {
+        perror("stat failed");
+        return;
+    }
+    time_t mtime_end = file_stat_end.st_mtime;
+
+    if (mtime_start != mtime_end) {
+        fprintf(stderr, "Warning: file %s changed during execution. Ratings not saved.\n", filename);
+        return;
+    }
+
+    // Safe to save ratings
+    save_ratings(ratings, num_sets);
+
+    // Print ratings
+    for (int i = 0; i < num_sets; i++)
+        printf("Set %d: ELO = %.1f\n", i, ratings[i]);
+}
+
+
+void add_new_set_and_estimate_elo(const char *main_file, const char *new_set_file, int total_sets, HashTable *ht) {
+    if (total_sets < 1) {
+        fprintf(stderr, "Need at least one existing set to compare.\n");
+        return;
+    }
+
+    double weights[MAX_SETS][WEIGHT_COUNT];
+    double ratings[MAX_SETS];
+
+    // Load existing ratings
+    load_ratings(ratings, total_sets);
+
+    // Load existing sets
+    for (int i = 0; i < total_sets; i++) {
+        if (load_weights_set(main_file, weights[i], WEIGHT_COUNT, i) != 0) {
+            fprintf(stderr, "Failed to load set %d from main file\n", i);
+            return;
+        }
+    }
+
+    // Load new set from separate file into last index
+    int new_index = total_sets;  // temporarily store in next slot
+    if (load_weights_set(new_set_file, weights[new_index], WEIGHT_COUNT, 0) != 0) {
+        fprintf(stderr, "Failed to load new set from %s\n", new_set_file);
+        return;
+    }
+
+    // Compute ELO for new set
+    double new_elo = 0.0;
+    double total_expected = 0.0;
+
+    eval_function_by_color[0] = 2;
+    eval_function_by_color[1] = 1;
+
+    int num_games_per_match = 5;
+
+    for (int i = 0; i < total_sets; i++) {
+        // New set as white, old as black
+        memcpy(self_play_weights1, weights[new_index], sizeof(double) * WEIGHT_COUNT);
+        memcpy(self_play_weights2, weights[i], sizeof(double) * WEIGHT_COUNT);
+        int score_white = (simulate_number_of_games(ht, 2, num_games_per_match, 1) + num_games_per_match) / 2.0;
+
+        // New set as black, old as white
+        memcpy(self_play_weights1, weights[i], sizeof(double) * WEIGHT_COUNT);
+        memcpy(self_play_weights2, weights[new_index], sizeof(double) * WEIGHT_COUNT);
+        int score_black = (simulate_number_of_games(ht, 2, num_games_per_match, 1) + num_games_per_match) / 2.0;
+
+        double score_as_white = (double)score_white / num_games_per_match;
+        double score_as_black = 1.0 - ((double)score_black / num_games_per_match);
+        double actual_score = (score_as_white + score_as_black) / 2.0;
+        if (actual_score >= 1) actual_score = 1 - 0.0001;
+        if (actual_score <= 0) actual_score = 0.0001;
+
+        double elo_diff = -400.0 * log10((1.0 / actual_score) - 1.0);
+        new_elo += ratings[i] + elo_diff;
+        total_expected += 1.0;
+    }
+
+    new_elo /= total_expected;
+
+    printf("New set's elo: %.1f\n", new_elo);
+
+    // Check if it's the best 
+    int is_best = 1; 
+    int max = 0;
+    for (int i = 0; i < total_sets; i++) { 
+        if (ratings[i] > max)
+            max = ratings[i];
+        if (ratings[i] >= new_elo) {
+            is_best = 0; 
+            break; 
+        } 
+    }
+    if (is_best) {
+        printf("NEW BEST\n");
+        new_elo = MIN(new_elo, max + 250);
+    }
+
+    // Find worst existing set
+    int worst_index = 0;
+    for (int i = 1; i < total_sets; i++) {
+        if (ratings[i] < ratings[worst_index]) worst_index = i;
+    }
+
+    if (new_elo > ratings[worst_index]) {
+        printf("New set from %s is better than worst (%.1f). Replacing set %d.\n",
+               new_set_file, ratings[worst_index], worst_index);
+
+        // Overwrite worst set with new set
+        memcpy(weights[worst_index], weights[new_index], sizeof(double) * WEIGHT_COUNT);
+        ratings[worst_index] = new_elo;
+
+        // Rewrite main weights file
+        FILE *f = fopen(main_file, "w");
+        if (!f) {
+            perror("Failed to rewrite main weights file");
+            return;
+        }
+        for (int i = 0; i < total_sets; i++) {
+            for (int j = 0; j < WEIGHT_COUNT; j++)
+                fprintf(f, "%.10f\n", weights[i][j]);
+            if (i < total_sets - 1) fprintf(f, "\n"); // empty line between sets
+        }
+        fclose(f);
+    } else {
+        printf("New set is not better than the worst (%.1f). Discarded.\n", ratings[worst_index]);
+    }
+
+    save_ratings(ratings, total_sets);
+
+    // Print ratings
+    for (int i = 0; i < total_sets; i++)
+        printf("Set %d ELO: %.1f\n", i, ratings[i]);
+}
+
+
+char is_comparing = 0;
 
 /* This function parses the commands. */
 char uci_parse(game *the_game, char is_game_on, HashTable *ht)
@@ -583,7 +1130,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         if (is_game_on) {
             //print_board(the_game->current_position);
             if (line[2] != '\0' && line[2] != '\n')
-                depth_by_color[!(the_game->current_position->whose_turn)] = line[3] - '0';
+                depth_by_color[(the_game->current_position->whose_turn)] = line[3] - '0';
             bot_move(the_game, ht,1);
             print_board_string(the_game->current_position);
             //print_board(the_game->current_position);
@@ -612,6 +1159,34 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
         else {
             printf("Game not started. (use newgame to start a new game)\n");
         }
+    }
+    if (!strncmp (line, "selfplay", 8))
+    {
+        is_comparing = 0;
+        selfplay(ht, 200, 2);
+        exit(0);
+    }
+    if (!strncmp (line, "compare", 7))
+    {
+        is_comparing = 1;
+        add_new_set_and_estimate_elo("weights.txt", "weights_A.txt", 4, ht);
+        exit(0);
+    }
+    if (!strncmp (line, "elo", 3))
+    {
+        is_comparing = 1;
+        while (1) {
+            assign_elo_for_file("weights.txt", 4, ht);
+            ht_clear(ht);
+        }
+    }
+    if (!strncmp (line, "analyse", 7)) {
+        is_comparing = 0;
+        char depth = 4;
+        if (line[8] != '\0') 
+            depth = line[8] - '0';
+        if (is_game_on)
+            print_analysis(the_game, depth, 3, ht);
     }
     if (!strncmp (line, "move", 4))
     {
@@ -654,203 +1229,6 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
 }
 
 
-typedef struct {
-    double features[12]; // Assuming 9 features
-    double target;      // The game result from this position
-} Position;
-typedef struct {
-    Position *positions;
-    int num_positions;
-} Dataset;
-
-
-
-void add_dataset_to_file(const char *filename, Dataset *ds) {
-    FILE *fp = fopen(filename, "a");
-    if (!fp) {
-        perror("Failed to open file for writing");
-        return;
-    }
-    for (int i = 0; i < ds->num_positions; i++) {
-        fprintf(fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf\n",
-                ds->positions[i].features[0], ds->positions[i].features[1],
-                ds->positions[i].features[2], ds->positions[i].features[3],
-                ds->positions[i].features[4], ds->positions[i].features[5],
-                ds->positions[i].features[6], ds->positions[i].features[7],
-                ds->positions[i].features[8], ds->positions[i].features[9],
-                ds->positions[i].features[10], ds->positions[i].features[11],
-                ds->positions[i].target);
-    }
-    fprintf(fp, "-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1\n"); // End of dataset marker
-    fclose(fp);
-}
-
-void save_boardstring_to_file(const char *filename, char boardstrings[][64], int num_positions) {
-    FILE *fp = fopen(filename, "a");
-    if (!fp) {
-        perror("Failed to open file for writing");
-        return;
-    }
-    for (int i = 0; i < num_positions; i++) {
-        fprintf(fp, "%s\n", boardstrings[i]);
-    }
-    fclose(fp);
-}
-
-
-int line_counter = 0;
-double simulate_number_of_games(HashTable *ht, char depth, int number_of_games) {
-    /* Simulate a number of games and return the average score */
-    // This version uses a random starting position from test_positions.txt
-    game the_game;
-    memset(&the_game, 0, sizeof(game));
-    board init;
-    memset(&init, 0, sizeof(board));
-    init_empty_board(&init);
-    char boardstring[100];
-    int i = 0;
-    line_counter++;
-    FILE *fp = fopen("test_positions.txt", "r");
-    while (i < line_counter) {
-        fgets(boardstring, sizeof(boardstring), fp);
-        i++;
-    }
-    boardstring[61] = rand() % 2 == 0 ? 'W' : 'B';
-    boardstring[62] = '\0';
-    board_string_to_board(&init, boardstring);
-    create_game(&the_game, &init);
-    double total_score = 0.0;
-    depth_by_color[0] = depth;
-    depth_by_color[1] = depth; 
-    double score;
-    int j; 
-    Dataset *ds = malloc(sizeof(Dataset));
-    ds->positions = malloc(sizeof(Position) * 10000);
-    ds->num_positions = 0;
-    double features[12];
-    char boardstrings[MAX_POSSIBLE_MOVES][64];
-    for (int i = 0; i < number_of_games; i++) {
-        char temp = eval_function_by_color[0];
-        eval_function_by_color[0] = eval_function_by_color[1];
-        eval_function_by_color[1] = temp;
-        temp = depth_by_color[0];
-        depth_by_color[0] = depth_by_color[1];
-        depth_by_color[1] = temp;
-        for (j = 0; j < MAX_POSSIBLE_MOVES; j++) {
-            get_features2(the_game.current_position, the_game.current_position->whose_turn, features);
-            get_board_string(the_game.current_position, boardstrings[j]);
-            memcpy(ds->positions[ds->num_positions].features, features, sizeof(ds->positions[ds->num_positions].features));
-            ds->num_positions++;
-            bot_move(&the_game, ht, -1);
-            if (check_endgame(&the_game) == 0) {
-                break;
-            }
-        }
-        score = who_won(&the_game);
-        total_score += score;
-        for (int k = 0; k < ds->num_positions; k++) {
-            ds->positions[k].target = score;
-        }
-    }
-    // Swap the evaluation functions back if the number of games is odd
-    if (number_of_games % 2 == 1) {
-        char temp = eval_function_by_color[0];
-        eval_function_by_color[0] = eval_function_by_color[1];
-        eval_function_by_color[1] = temp; // Swap back if odd number of games
-    }
-    add_dataset_to_file("all_games_depth_2.csv", ds);
-    save_boardstring_to_file("all_boardstrings_2.txt", boardstrings, j);
-    return total_score / number_of_games;
-}
-
-
-void selfplay(HashTable *ht, int number_of_games, char depth) {
-    // This function plays a number of games against itself and saves the features to a file
-    for (int i = 0; i < number_of_games; i++) {
-        eval_function_by_color[0] = 5;
-        eval_function_by_color[1] = 5;
-        double score = simulate_number_of_games(ht, depth, 1);
-    }
-}
-
-void get_features_and_evals_from_boardstrings_file(const char *input_filename, const char *output_filename) {
-    FILE *fp = fopen(input_filename, "r");
-    if (!fp) {
-        perror("Failed to open input file");
-        return;
-    }
-    char line[100];
-    FILE *out_fp = fopen(output_filename, "w");
-    if (!out_fp) {
-        perror("Failed to open output file");
-        fclose(fp);
-        return;
-    }
-    board b;
-    double features[12];
-    int count = 0;
-    while (fgets(line, sizeof(line), fp)) {
-        // Remove newline character
-        line[strcspn(line, "\n")] = 0;
-        line[61] = 'B';
-        line[62] = '\0';
-        board_string_to_board(&b, line);
-        get_features2(&b, b.whose_turn, features);
-        fprintf(out_fp, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
-                features[0], features[1], features[2], features[3],
-                features[4], features[5], features[6], features[7],
-                features[8], features[9], features[10], features[11]);
-        evaluation_function_number = 5;
-        double eval = evaluate(&b, b.whose_turn);
-        fprintf(out_fp, ",%lf\n", eval);
-        count++;
-        if (count % 1000 == 0) {
-            printf("Processed %d positions\n", count);
-            fflush(stdout);
-        }
-    }
-}
-
-void get_intresting_positions() {
-    // use all_boardstrings.txt to get the eval of each position and if it's close to 0, save it to a file (test_positions.txt)
-    FILE *fp = fopen("all_boardstrings.txt", "r");
-    if (!fp) {
-        perror("Failed to open input file");
-        return;
-    }
-    char line[100];
-    FILE *out_fp = fopen("test_positions.txt", "w");
-    if (!out_fp) {
-        perror("Failed to open output file");
-        fclose(fp);
-        return;
-    }
-    board b;
-    int count = 0;
-    while (fgets(line, sizeof(line), fp)) {
-        // Remove newline character
-        line[strcspn(line, "\n")] = 0;
-        line[61] = 'B';
-        line[62] = '\0';
-        board_string_to_board(&b, line);
-        evaluation_function_number = 5;
-        double eval = evaluate(&b, b.whose_turn);
-        if (eval > -0.1 && eval < 0.1 && rand() % 10 == 0) {
-            fprintf(out_fp, "%s\n", line);
-            count++;
-        }
-        if (count % 1000 == 0) {
-            printf("Found %d intresting positions\n", count);
-            fflush(stdout);
-        }
-    }
-}
-
-extern double self_play_weights1[WEIGHT_COUNT];
-extern double self_play_weights2[WEIGHT_COUNT];
-extern double self_play_weights3[WEIGHT_COUNT];
-
-
 int main()
 {
     
@@ -868,14 +1246,14 @@ int main()
     /* Initialize ht: */ 
     ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),2000000);
 
-    load_weights("weights_A.txt", self_play_weights1, WEIGHT_COUNT);
-    load_weights("weights_B.txt", self_play_weights2, WEIGHT_COUNT); // best one.
-    load_weights("weights_C.txt", self_play_weights3, WEIGHT_COUNT);
-    eval_function_by_color[0] = 5;
-    eval_function_by_color[1] = 5;
+    load_weights_set("weights_A.txt", self_play_weights1, WEIGHT_COUNT, 0);
+    load_weights_set("weights_B.txt", self_play_weights2, WEIGHT_COUNT, 0);
+    load_weights_set("weights_C.txt", self_play_weights3, WEIGHT_COUNT, 0);
+    is_comparing = 1;
+    eval_function_by_color[0] = 2;
+    eval_function_by_color[1] = 3;
     srand(time(NULL)); // Seed the random number generator
-    //selfplay(&ht, 10000, 2);
-    //get_intresting_positions();
+    //add_new_set_and_estimate_elo("weights.txt", "weights_A.txt", 4, &ht);
      
 	while(1) {
         is_game_on = uci_parse(the_game, is_game_on, &ht);

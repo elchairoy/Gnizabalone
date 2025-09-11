@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <math.h>
+#include <ctype.h>
 #include "string.h"
 #include "board_struct.h"
 #include "possible_moves.h"
