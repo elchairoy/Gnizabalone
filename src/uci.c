@@ -2,7 +2,7 @@
 #include "evaluation.h"
 
 extern long int number_of_moves;
-extern long int number_of_ht_found;
+extern long int number_of_ht_inserted;
 extern char evaluation_function_number;
 
 extern int history_heuristic_push[2*RADIUS - 1][2*RADIUS - 1][6];
@@ -121,6 +121,7 @@ int player_move(game *the_game, const char *str)
 }
 
 void print_pv(game *the_game, char depth, HashTable *ht) {
+    // This uses the TT to collect the princple variation. 
     if (depth == 0)
         return;
     char color = the_game->current_position->whose_turn;
@@ -317,7 +318,7 @@ double bot_move(game *the_game, HashTable *ht, char logs)
         printf("eval: %lf\n", best_move.eval);
         print_board(the_board);
     }
-    if(ht->size >= 2000000) { ht_clear(ht); printf("Hash table cleared\n"); }
+    if(ht->size >= HT_CAPACITY) { ht_clear(ht); printf("Hash table cleared\n"); }
 
     // Restore increment
     the_game->tc.time_left[color] += the_game->tc.increment[color];
@@ -1244,14 +1245,14 @@ int main()
     char is_game_on = 0;
     
     /* Initialize ht: */ 
-    ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),2000000);
+    ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),HT_CAPACITY);
 
     load_weights_set("weights_A.txt", self_play_weights1, WEIGHT_COUNT, 0);
     load_weights_set("weights_B.txt", self_play_weights2, WEIGHT_COUNT, 0);
     load_weights_set("weights_C.txt", self_play_weights3, WEIGHT_COUNT, 0);
     is_comparing = 1;
     eval_function_by_color[0] = 2;
-    eval_function_by_color[1] = 3;
+    eval_function_by_color[1] = 2;
     srand(time(NULL)); // Seed the random number generator
     //add_new_set_and_estimate_elo("weights.txt", "weights_A.txt", 4, &ht);
      

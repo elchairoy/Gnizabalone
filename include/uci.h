@@ -14,4 +14,6 @@
 
 #define ASPIRATION_WINDOW 100 // for now, not used
 
+#define HT_CAPACITY 2097152
+
 #endif /* AFD0BF27_C006_46B4_89E6_171B4DC00121 */
