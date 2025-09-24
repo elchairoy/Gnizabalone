@@ -1,8 +1,5 @@
 #include "../include/minimax.h"
 
-#define MAX_EVAL 100 /* The maximum evaluation possible. */
-#define MIN_EVAL -100 /* The minimum evaluation possible. */
-
 #define EVAL_TO_PRUNE 5 /* In what evaluation the minimax will cut the moves branch because it's too bad. */
 #define RAZORING_MARGIN 0.2 /* The margin for razoring. */
 char NULL_MOVE_REDUCTION; /* The null move reduction. */
@@ -10,7 +7,7 @@ char MIN_NULL_MOVE; /* The minimum depth for null move. */
 char is_nms; /* If null move search is on. */
 char is_quiescence; /* If quiescence search is on. */
 char Q_DEPTH; /* The quiescence search depth. */
-char is_ht_search; /* If hash table search is on. */
+char is_ht_search = 1; /* If hash table search is on. */
 
 long int number_of_moves = 0; /* The number of positions scaned. */
 long int number_of_ht_found = 0; /* The number of positions found in the hash table. */
@@ -651,8 +648,6 @@ minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double
     create_a_minimax_move_eval(&temp, min, PV_NODE, best);
     return temp;
 }
-
-
 
 void order_moves(game *g, move *all_moves, double *move_values, char depth, HashTable *ht) {
     /* We need to order the moves so the moves expected to be better will be first: */

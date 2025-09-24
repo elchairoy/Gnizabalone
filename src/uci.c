@@ -142,68 +142,64 @@ void print_pv(game *the_game, char depth, HashTable *ht) {
 }
 
 static char is_decending;
-int cmp_move_eval(const void *a, const void *b) {
-    double ea = ((minimax_eval*)a)->eval;
-    double eb = ((minimax_eval*)b)->eval;
-    if (ea > eb) return -1 * is_decending;  // sort descending
-    if (ea < eb) return 1 * is_decending;
-    return 0;
+int cmp_pv_eval(const void *a, const void *b) {
+    pv_line_t *pa = (pv_line_t *)a;
+    pv_line_t *pb = (pv_line_t *)b;
+    if (is_decending > 0)
+        return (pb->eval > pa->eval) - (pb->eval < pa->eval); // descending
+    else
+        return (pa->eval > pb->eval) - (pa->eval < pb->eval); // ascending
 }
 
-void print_analysis(game *the_game, char depth, char k, HashTable *ht)
+extern char NULL_MOVE_REDUCTION;
+extern char MIN_NULL_MOVE;
+
+
+int print_analysis(game *the_game, char depth, char k, HashTable *ht)
 {
+    if(ht->size >= HT_CAPACITY) { ht_clear(ht); printf("Hash table cleared\n"); }
     board *the_board = the_game->current_position;
-    move all_moves[MAX_POSSIBLE_MOVES];
-    get_possible_moves(the_board, all_moves);
+    pv_line_t pv_results[MAX_POSSIBLE_MOVES];  // store full PVs
+    int actual_pvs = 0;
 
-    minimax_eval evals[MAX_POSSIBLE_MOVES];
     evaluation_function_number = 2;
+    if (depth < 6) { NULL_MOVE_REDUCTION = 2; MIN_NULL_MOVE = 2; }
+    else { NULL_MOVE_REDUCTION = 3; MIN_NULL_MOVE = 2; }
 
-    int n = 0;
-    for (int i = 0; all_moves[i] != END; i++) {  // assuming invalid moves marked with from=-1
-        // commit move
-        irreversible_move_info inf = get_irrev_move_info(the_board, all_moves[i]);
-        commit_a_move_in_game(the_game, all_moves[i]);
-        int color = the_board->whose_turn;
-
-        // run minimax depending on color
-        minimax_eval result;
-        if (color == WHITE) {
-            result = get_best_move_white(the_game, depth - 1, -200, 200, ht);
-        }
-        else {
-            result = get_best_move_black(the_game, depth - 1, -200, 200, ht);
-        }
-
-        // undo move
-        unmake_move_in_game(the_game, all_moves[i], inf);
-
-        evals[n].m = all_moves[i];
-        evals[n].eval = result.eval;
-        n++;
+    if (the_board->whose_turn == WHITE) {
+        actual_pvs = get_best_pvs_white(the_game, depth, -200, 200, ht, k, pv_results);
+    } else {
+        actual_pvs = get_best_pvs_black(the_game, depth, -200, 200, ht, k, pv_results);
     }
 
-    // sort by eval
+    // Optional: sort PVs by eval for consistent output
     if (the_board->whose_turn == WHITE)
         is_decending = 1;
     else 
         is_decending = -1;
-    qsort(evals, n, sizeof(minimax_eval), cmp_move_eval);
 
-    // print best k
-    int limit = (k < n ? k : n);
-    for (int i = 0; i < limit; i++) {
+    qsort(pv_results, actual_pvs, sizeof(pv_line_t), cmp_pv_eval);
+
+    
+    for (int i = 0; i < actual_pvs; i++) {
         printf("%d) ", i + 1);
-        print_move(evals[i].m);
-        printf(" eval: %.3f\n", evals[i].eval);
+        if (pv_results[i].length > 0)
+            print_move(pv_results[i].moves[0]);  // root move
 
-        // print PV starting from this move
-        irreversible_move_info inf = get_irrev_move_info(the_board, evals[i].m);
-        commit_a_move_in_game(the_game, evals[i].m);
-        print_pv(the_game, depth - 1, ht);
-        unmake_move_in_game(the_game, evals[i].m, inf);
-        printf("\n");
+        printf("\tPV: ");
+        for (int j = 0; j < pv_results[i].length; j++) {
+            print_move(pv_results[i].moves[j]);
+            printf(" ");
+        }
+        printf("\t\teval: %.3f\n", pv_results[i].eval);
     }
+
+    // Decide based on evaluation difference
+    char color = the_board->whose_turn * 2 - 1;
+    if (pv_results[0].eval * color > 0.1 && pv_results[1].eval * color < 0)
+        return 1;
+
+    return 0;
 }
 
 
@@ -229,8 +225,6 @@ double get_soft_bound(game *the_game) {
 
 char eval_function_by_color[2];
 char depth_by_color[2] = {6, 6};
-extern char NULL_MOVE_REDUCTION;
-extern char MIN_NULL_MOVE;
 extern clock_t start_time;
 extern double max_duration;
 double bot_move(game *the_game, HashTable *ht, char logs)
@@ -347,7 +341,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
+        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 250) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -371,7 +365,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
+        if (check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 250) {
             printf("REPETITION 0.5-0.5\n");
             fflush(stdout);
             return 0;
@@ -394,7 +388,7 @@ double who_won(game *the_game)
         else if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             return -1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
+        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 250) {
             return 0;
         }
     }
@@ -407,7 +401,7 @@ double who_won(game *the_game)
         else if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             return 1;
         }
-        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 300) {
+        else if (all_moves[0] == END || check_repetition(the_game, 0) || the_game->number_of_moves_in_game >= 250) {
             return 0;
         }
     }
@@ -541,13 +535,16 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, -2, 4, white_marble);
 
     b->hash = _ht_default_hash(b);
+    debug_opening(b);
 }
 
 void debug_opening(board *b) {
     b->whose_turn = BLACK;
     // start with all black marbles in the center, and the white is in the corners
-    char *bs = "W00000B0B0W00000WW00BBBWWW000BBBWWW000BB000000B0000BB00000W00B";
+    char *bs = "0W00000BWW000WBB0000WWBW000000B000000BBWW00000BB00000W0000000B";
     board_string_to_board(b, bs);
+
+    b->hash = _ht_default_hash(b);
 }
 
 /* Create a game: */
@@ -679,7 +676,7 @@ void save_boardstring_to_file(const char *filename, char boardstrings[][64], int
 }
 
 
-int line_counter = 0;
+int line_counter = 300;
 double simulate_number_of_games(HashTable *ht, char depth, int number_of_games, char is_new_game) {
     /* Simulate a number of games and return the average score */
     // This version uses a random starting position from test_positions.txt
@@ -722,7 +719,7 @@ double simulate_number_of_games(HashTable *ht, char depth, int number_of_games, 
             get_board_string(the_game.current_position, boardstrings[j]);
             memcpy(ds->positions[ds->num_positions].features, features, sizeof(ds->positions[ds->num_positions].features));
             ds->num_positions++;
-            bot_move(&the_game, ht, -1);
+            int temp = bot_move(&the_game, ht, -1);
             if (check_endgame(&the_game) == 0) {
                 break;
             }
@@ -744,9 +741,10 @@ double simulate_number_of_games(HashTable *ht, char depth, int number_of_games, 
 void selfplay(HashTable *ht, int number_of_games, char depth) {
     // This function plays a number of games against itself and saves the features to a file
     for (int i = 0; i < number_of_games; i++) {
-        eval_function_by_color[0] = 3;
-        eval_function_by_color[1] = 3;
+        eval_function_by_color[0] = 2;
+        eval_function_by_color[1] = 2;
         double score = simulate_number_of_games(ht, depth, 1, 0);
+        ht_clear(ht);
     }
 }
 
@@ -892,12 +890,12 @@ void assign_elo_for_file(const char *filename, int num_sets, HashTable *ht) {
             // Player i as white, j as black
             memcpy(self_play_weights1, weights[i], sizeof(double) * WEIGHT_COUNT);
             memcpy(self_play_weights2, weights[j], sizeof(double) * WEIGHT_COUNT);
-            double score_i_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
+            double score_i_white = (simulate_number_of_games(ht, 4, 1, 1) + 1) / 2.0;
 
             // Player j as white, i as black
             memcpy(self_play_weights1, weights[j], sizeof(double) * WEIGHT_COUNT);
             memcpy(self_play_weights2, weights[i], sizeof(double) * WEIGHT_COUNT);
-            double score_j_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
+            double score_j_white = (simulate_number_of_games(ht, 4, 1, 1) + 1) / 2.0;
 
             // Compute ELO update
             double expected_i = 1.0 / (1.0 + pow(10.0, (ratings[j] - ratings[i]) / 400.0));
@@ -1164,7 +1162,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
     if (!strncmp (line, "selfplay", 8))
     {
         is_comparing = 0;
-        selfplay(ht, 200, 2);
+        selfplay(ht, 700, 4);
         exit(0);
     }
     if (!strncmp (line, "compare", 7))
@@ -1229,6 +1227,53 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
     return is_game_on;
 }
 
+int find_pazzles(const char *filename, HashTable *ht) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        fprintf(stderr, "Error: could not open %s\n", filename);
+        return -1;
+    }
+    FILE *fp_out = fopen("4d_pazzles.txt", "w");
+    if (!fp_out) {
+        fprintf(stderr, "Error: could not open %s\n", "2d_pazzles.txt");
+        return -1;
+    }
+    eval_function_by_color[0] = 2;
+    eval_function_by_color[1] = 2;
+    evaluation_function_number = 2;
+    char boardstring[128];
+    int line_num = 0;
+    char color;
+    while (fgets(boardstring, sizeof(boardstring), fp)) {
+        // Ensure boardstring is properly terminated
+        boardstring[61] = rand() % 2 ? 'W' : 'B';
+        color = boardstring[61] == 'W' ? WHITE : BLACK;
+        boardstring[62] = '\0';
+
+        board b;
+        game g;
+        memset(&b, 0, sizeof(board));
+        memset(&g, 0, sizeof(game));
+        init_empty_board(&b);
+        board_string_to_board(&b, boardstring);
+        create_game(&g, &b);
+
+        double eval = evaluate(&b, color);
+        eval *= color == BLACK ? 1 : -1;
+        eval = print_analysis(&g, 4, 2, ht);
+        if (eval) {
+            print_board(&b);
+            fprintf(fp_out, "%s\n", boardstring);
+            fflush(fp_out);
+        }
+        line_num++;
+        if (line_num % 100 == 0)
+            printf("calculated so far %d positions\n", line_num);
+    }
+
+    fclose(fp);
+    return line_num;  // return number of boardstrings loaded
+}
 
 int main()
 {
@@ -1250,12 +1295,13 @@ int main()
     load_weights_set("weights_A.txt", self_play_weights1, WEIGHT_COUNT, 0);
     load_weights_set("weights_B.txt", self_play_weights2, WEIGHT_COUNT, 0);
     load_weights_set("weights_C.txt", self_play_weights3, WEIGHT_COUNT, 0);
-    is_comparing = 1;
+    is_comparing = 0;
     eval_function_by_color[0] = 2;
     eval_function_by_color[1] = 2;
     srand(time(NULL)); // Seed the random number generator
     //add_new_set_and_estimate_elo("weights.txt", "weights_A.txt", 4, &ht);
-     
+    //find_pazzles("slightly_worse.txt", &ht);
+
 	while(1) {
         is_game_on = uci_parse(the_game, is_game_on, &ht);
     }

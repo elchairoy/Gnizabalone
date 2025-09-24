@@ -12,21 +12,21 @@ EVALS_FILE = "evals.txt"
 DATA_FILE = "all_games_depth_2.csv"
 
 # Training hyperparameters
-I = 10          # TD horizon
+I = 5         # TD horizon
 LR = 0.01       # Learning rate
-LEN = 200_000 # Max dataset length
+LEN = 2_000_000 # Max dataset length
 
 
 class FeatureEvaluator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(FEATURE_COUNT, 16, bias=False)
-        self.fc2 = nn.Linear(16, 4, bias=False)
-        self.fc3 = nn.Linear(4, 1, bias=False)
+        self.fc1 = nn.Linear(FEATURE_COUNT, 16, bias=True)
+        self.fc2 = nn.Linear(16, 4, bias=True)
+        self.fc3 = nn.Linear(4, 1, bias=True)
 
     def forward(self, x):
         x = torch.tanh(self.fc1(x))
-        x = torch.relu(self.fc2(x))
+        x = torch.tanh(self.fc2(x))
         x = torch.tanh(self.fc3(x))
         return x.squeeze(1)
 
@@ -70,7 +70,7 @@ def load_td_training_data(td_csv_file=EVALS_FILE, feature_count=FEATURE_COUNT, g
                     L = len(current_game_X)
                     for i in range(L):
                         if i >= L - I - 1:
-                            target = current_game_y[-1][1] * alpha ** (L - 1)
+                            target = current_game_y[-1][1] * alpha ** (L - 1) 
                         else:
                             target = current_game_y[i + I][0] * alpha ** (i + I)
                         X_list.append(current_game_X[i])
@@ -93,7 +93,7 @@ def load_td_training_data(td_csv_file=EVALS_FILE, feature_count=FEATURE_COUNT, g
         L = len(current_game_X)
         for i in range(L):
             if i >= L - I - 1:
-                target = current_game_y[-1][1] * alpha ** (L - 1)
+                target = current_game_y[-1][1] * alpha ** (L - 1) 
             else:
                 target = current_game_y[i + I][0] * alpha ** (i + I)
             X_list.append(current_game_X[i])
@@ -124,7 +124,9 @@ def train_td_model(model_class=FeatureEvaluator,
 
     # Train/validation split
     n_val = max(1, int(len(X) * val_fraction))
-    val_indices = torch.randperm(len(X))[:n_val]
+
+    # Take a contiguous chunk from the end (or start) of the dataset
+    val_indices = torch.arange(0, n_val)
     train_mask = torch.ones(len(X), dtype=torch.bool)
     train_mask[val_indices] = False
 
@@ -133,7 +135,7 @@ def train_td_model(model_class=FeatureEvaluator,
 
     train_dataset = TensorDataset(X_train, y_train, w_train)
     model = model_class()
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss(reduction="none")
 
     scheduler = torch.optim.lr_scheduler.CyclicLR(
@@ -213,18 +215,17 @@ def generate_evals_file(model_class=FeatureEvaluator,
 def selfplay_training_loop():
     generate_evals_file()
     for i in range(4):  # two-phase LR schedule
-        lr = 0.01 if i == 0 else 0.001
+        lr = 0.01 if i < 3 else 0.001
         train_td_model(model_class=FeatureEvaluator,
                        evals_file=EVALS_FILE,
                        epochs=30,
                        batch_size=1024,
                        lr=lr)
         
-
-import subprocess
-import shutil
 import time
 from concurrent.futures import ProcessPoolExecutor
+import subprocess
+import shutil
 
 def run_engine_command(engine_path, command):
     """Run the engine with a single command and return stdout."""
@@ -236,31 +237,40 @@ def run_engine_command(engine_path, command):
     )
     return result.stdout.decode(errors="ignore")
 
-# --- New helper for selfplay ---
-def run_selfplay(engine_path):
+# --- New helper for selfplay with optional delay ---
+def run_selfplay_delayed(engine_path, delay_seconds=1):
+    time.sleep(delay_seconds)  # stagger start
     return run_engine_command(engine_path, "selfplay\n")
+
+def run_selfplay_with_args(args):
+    """Top-level helper for ProcessPoolExecutor."""
+    engine_path, delay = args
+    return run_selfplay_delayed(engine_path, delay)
+
 
 def full_auto_training():
     ENGINE_PATH = "./bin/Gnizabalone.exe"
     WEIGHTS_A = "weights_A.txt"
     WEIGHTS_C = "weights_C.txt"
 
+    print("=== Starting self-play phase (10 parallel processes, staggered) ===")
+
+    delays = [i for i in range(10)]  # 0,1,2,...,9 seconds
+    args = [(ENGINE_PATH, delay) for delay in delays]
+
+    with ProcessPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(run_selfplay_with_args, args))
+
+    for i, out in enumerate(results, 1):
+        print(f"[Selfplay {i}] {out.strip()}")
+
     while True:
         is_changed = 0
         i = 0
 
-        clean_dataset_file(DATA_FILE)
-        print("=== Starting self-play phase (10 parallel processes) ===")
-        with ProcessPoolExecutor(max_workers=10) as executor:
-            results = list(executor.map(run_selfplay, [ENGINE_PATH] * 10))
-        for i, out in enumerate(results, 1):
-            print(f"[Selfplay {i}] {out.strip()}")
-
         while (is_changed * i < 10):
             print("=== Training on generated games ===")
-            # Train the model on the current game file
-            # (assumes you already have a function defined for this)
-            selfplay_training_loop()  
+            selfplay_training_loop()  # assumes this function exists
 
             print("=== Comparing weights ===")
             out = run_engine_command(ENGINE_PATH, "compare\n")
@@ -271,18 +281,33 @@ def full_auto_training():
                 shutil.copyfile(WEIGHTS_A, WEIGHTS_C)
                 is_changed += 1
                 i = 0
-            else:
+            elif i%4 == 0:
                 shutil.copyfile(WEIGHTS_C, WEIGHTS_A)
 
             i += 1
-
-
         
 
 
+def predict():
+    model = FeatureEvaluator()
+    load_model_weights_from_file(model, "weights_A.txt")
+    model.eval()  # set to evaluation mode
 
+    # --- Read input from user ---
+    user_input = input("Enter 12 numbers separated by commas: ")
+    numbers = [float(x.strip()) for x in user_input.split(",")]
 
-    
+    if len(numbers) != 12:
+        raise ValueError("Exactly 12 numbers are required.")
+
+    # --- Convert to tensor ---
+    x = torch.tensor(numbers, dtype=torch.float32).unsqueeze(0)  # shape [1, 12]
+
+    # --- Get prediction ---
+    with torch.no_grad():
+        output = model(x)
+
+    print("Model prediction:", output.item())
 
 if __name__ == "__main__":
     full_auto_training()

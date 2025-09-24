@@ -10,6 +10,7 @@
 #include "useful_functions.h"
 #include "make_move.h"
 #include "minimax.h"
+#include "analyse.h"
 #include "evaluation.h"
 
 #define ASPIRATION_WINDOW 100 // for now, not used

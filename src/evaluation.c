@@ -278,31 +278,41 @@ static inline double get_nn1_output(const double *input, const double *weights) 
     double hidden1[HIDDEN1_SIZE];
     double hidden2[HIDDEN2_SIZE];
 
-    // fc1: input -> hidden1, no bias, tanh
+    // --- fc1: input -> hidden1 with bias ---
+    // weights layout: [fc1_weights | fc1_bias | fc2_weights | fc2_bias | fc3_weights | fc3_bias]
+    int offset = 0;
     for (int j = 0; j < HIDDEN1_SIZE; j++) {
         double sum = 0.0;
         for (int i = 0; i < INPUT_SIZE; i++) {
-            sum += input[i] * weights[j * INPUT_SIZE + i];
+            sum += input[i] * weights[offset + j * INPUT_SIZE + i];
         }
+        // add bias
+        sum += weights[offset + HIDDEN1_SIZE * INPUT_SIZE + j];
         hidden1[j] = tanh(sum);
     }
 
-    // fc2: hidden1 -> hidden2, no bias, tanh
-    int offset = HIDDEN1_SIZE * INPUT_SIZE;
+    offset += HIDDEN1_SIZE * INPUT_SIZE + HIDDEN1_SIZE;  // move past fc1 weights + bias
+
+    // --- fc2: hidden1 -> hidden2 with bias ---
     for (int j = 0; j < HIDDEN2_SIZE; j++) {
         double sum = 0.0;
         for (int i = 0; i < HIDDEN1_SIZE; i++) {
             sum += hidden1[i] * weights[offset + j * HIDDEN1_SIZE + i];
         }
-        hidden2[j] = relu(sum);
+        // add bias
+        sum += weights[offset + HIDDEN2_SIZE * HIDDEN1_SIZE + j];
+        hidden2[j] = tanh(sum);
     }
 
-    // fc3: hidden2 -> output, no bias
-    offset += HIDDEN2_SIZE * HIDDEN1_SIZE;
+    offset += HIDDEN2_SIZE * HIDDEN1_SIZE + HIDDEN2_SIZE;  // move past fc2 weights + bias
+
+    // --- fc3: hidden2 -> output with bias ---
     double output = 0.0;
     for (int j = 0; j < HIDDEN2_SIZE; j++) {
         output += hidden2[j] * weights[offset + j];
     }
+    // add output bias
+    output += weights[offset + HIDDEN2_SIZE];
 
     return tanh(output);
 }
@@ -350,7 +360,7 @@ double evaluate_nn1(board *b, char color) {
     double features[FEATURE_COUNT];
     get_features2(b, color, features);
 
-    return get_nn2_output(features, self_play_weights1);
+    return get_nn1_output(features, self_play_weights1);
 }
 
 
@@ -364,7 +374,7 @@ double evaluate_nn2(board *b, char color) {
 double evaluate_nn3(board *b, char color) {
     double features[12];
     get_features2(b, color, features);
-    return (get_nn2_output(features, self_play_weights3));
+    return (get_nn1_output(features, self_play_weights3));
 }
 
 /******************************************************************************************************************************************************************************* */
