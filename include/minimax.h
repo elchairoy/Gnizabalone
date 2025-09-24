@@ -26,12 +26,15 @@ minimax_eval evaluate_minimax_for_black(game *the_game, char depth, double alpha
 minimax_eval get_best_move_white(game *the_game,char depth, double alpha, double beta, HashTable *ht);
 minimax_eval get_best_move_black(game *the_game,char depth, double alpha, double beta, HashTable *ht);
 
-
 void order_moves(game *g, move *all_moves, double *move_values, char depth, HashTable *ht);
 void order_moves_queiscence(game *g, move *all_moves, double *move_values, HashTable *ht);
 
 void decay_history_heuristic(double decay);
 
 #define HISTORY_DECAY 0.9
+
+#define MAX_EVAL 100 /* The maximum evaluation possible. */
+#define MIN_EVAL -100 /* The minimum evaluation possible. */
+
 
 #endif /* BE5F1FF0_4F72_47C7_8DFE_407829A022EA */

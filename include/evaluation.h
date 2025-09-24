@@ -10,7 +10,7 @@
 #define STARTING_MARBLES_WHITE 14
 #define STARTING_MARBLES_BLACK 14
 
-#define WEIGHT_COUNT 260  // Adjust this based on your model size
+#define WEIGHT_COUNT 281  // Adjust this based on your model size
 #define FEATURE_COUNT 12
 
 double evaluate(board *b, char color);

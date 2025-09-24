@@ -80,15 +80,43 @@ const char* cord_to_label(int x, int y) {
 }
 
 void label_to_cord(char* label, char cord[2]) {
-    for (int k1 = -RADIUS + 1; k1 < RADIUS; k1++){
-        for (int k2 = -RADIUS + 1; k2 < RADIUS; k2++){
-            if (strcmp(label, cord_to_label(-k1,-k2)) == 0) {
-                cord[0] = k1, cord[1] = k2;
-                return;
-            }
+    char letter = label[0];
+    int number = label[1] - '0';  // from '0'..'9'
+
+    int x = -100, y = -100;  // init with invalid values
+
+    // Step 1: find x from row_labels
+    for (int i = 0; i < 2 * RADIUS - 1; i++) {
+        if (row_labels[i] == letter) {
+            x = i - (RADIUS - 1);
+            break;
         }
     }
+
+    if (x == -100) {
+        fprintf(stderr, "Invalid label: %s\n", label);
+        cord[0] = 0;
+        cord[1] = 0;
+        return;
+    }
+
+    // Step 2: row length
+    int row_len = row_lensgth[x + RADIUS - 1];
+
+    // Step 3: undo row_len adjustment
+    int tmp = row_len + 1 - number;
+
+    // Step 4: undo x<0 correction
+    if (x < 0)
+        y = tmp - RADIUS - x;
+    else
+        y = tmp - RADIUS;
+
+    cord[0] = (char)x;
+    cord[1] = (char)y;
 }
+
+
 
 void print_board(board *the_board){
     /* Printing the Abalone board */
@@ -506,6 +534,23 @@ char *my_strndup(const char *s, size_t n) {
     return new_str;
 }
 
+char* strrev(char* str) {
+    if (!str) return NULL;
+
+    size_t len = strlen(str);
+    size_t i = 0, j = len - 1;
+
+    while (i < j) {
+        char tmp = str[i];
+        str[i] = str[j];
+        str[j] = tmp;
+        i++;
+        j--;
+    }
+
+    return str;
+}
+
 void get_board_string(board *b, char *str) {
         // This function returns a string representation of the board.
     // The string is in the format like:
@@ -527,6 +572,7 @@ void get_board_string(board *b, char *str) {
         }
     }
     str[index] = '\0'; // Null-terminate the string
+    strrev(str);
 }
 
 void print_board_string(board *b) {
