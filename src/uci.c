@@ -530,7 +530,6 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, -4, 4, white_marble);
 
     b->hash = _ht_default_hash(b);
-    debug_opening(b);
 }
 
 void debug_opening(board *b) {
