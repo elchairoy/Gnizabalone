@@ -521,7 +521,7 @@ double get_random(double value) {
     // Generate a random number between -1 and 1
     double random = (double)rand() / RAND_MAX;
     // now scale it to be up to 5% of the value
-    random = (random * 2 - 1) * value * 0.005; // Scale to -0.05*value to 0.05*value
+    random = (random * 2 - 1) * value * 0.0005; // Scale to -0.05*value to 0.05*value
     return value + random; // Add the random value to the original value
 }
 

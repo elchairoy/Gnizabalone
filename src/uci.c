@@ -525,7 +525,7 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, 3, -3, white_marble);
     change_the_square(b, 3, -4, white_marble);
     change_the_square(b, 4, -3, white_marble);
-    change_the_square(b, 2, -4, white_marble);
+    change_the_square(b, 4, -4, white_marble);
     change_the_square(b, -2, 2, white_marble);
     change_the_square(b, -2, 3, white_marble);
     change_the_square(b, -3, 2, white_marble);
@@ -535,7 +535,6 @@ void belgian_daisy_opening(board *b) {
     change_the_square(b, -2, 4, white_marble);
 
     b->hash = _ht_default_hash(b);
-    debug_opening(b);
 }
 
 void debug_opening(board *b) {
@@ -676,7 +675,7 @@ void save_boardstring_to_file(const char *filename, char boardstrings[][64], int
 }
 
 
-int line_counter = 300;
+int line_counter = 1000;
 double simulate_number_of_games(HashTable *ht, char depth, int number_of_games, char is_new_game) {
     /* Simulate a number of games and return the average score */
     // This version uses a random starting position from test_positions.txt
@@ -890,12 +889,12 @@ void assign_elo_for_file(const char *filename, int num_sets, HashTable *ht) {
             // Player i as white, j as black
             memcpy(self_play_weights1, weights[i], sizeof(double) * WEIGHT_COUNT);
             memcpy(self_play_weights2, weights[j], sizeof(double) * WEIGHT_COUNT);
-            double score_i_white = (simulate_number_of_games(ht, 4, 1, 1) + 1) / 2.0;
+            double score_i_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
 
             // Player j as white, i as black
             memcpy(self_play_weights1, weights[j], sizeof(double) * WEIGHT_COUNT);
             memcpy(self_play_weights2, weights[i], sizeof(double) * WEIGHT_COUNT);
-            double score_j_white = (simulate_number_of_games(ht, 4, 1, 1) + 1) / 2.0;
+            double score_j_white = (simulate_number_of_games(ht, 2, 1, 1) + 1) / 2.0;
 
             // Compute ELO update
             double expected_i = 1.0 / (1.0 + pow(10.0, (ratings[j] - ratings[i]) / 400.0));
@@ -1233,9 +1232,9 @@ int find_pazzles(const char *filename, HashTable *ht) {
         fprintf(stderr, "Error: could not open %s\n", filename);
         return -1;
     }
-    FILE *fp_out = fopen("4d_pazzles.txt", "w");
+    FILE *fp_out = fopen("4d_pazzles.txt", "a");
     if (!fp_out) {
-        fprintf(stderr, "Error: could not open %s\n", "2d_pazzles.txt");
+        fprintf(stderr, "Error: could not open %s\n", "4d_pazzles.txt");
         return -1;
     }
     eval_function_by_color[0] = 2;
@@ -1293,11 +1292,11 @@ int main()
     ht_setup(&ht,sizeof(ht_board_struct),sizeof(ht_move_eval_struct),HT_CAPACITY);
 
     load_weights_set("weights_A.txt", self_play_weights1, WEIGHT_COUNT, 0);
-    load_weights_set("weights_B.txt", self_play_weights2, WEIGHT_COUNT, 0);
+    load_weights_set("weights_B.txt", self_play_weights2, WEIGHT_COUNT, 0); // still best
     load_weights_set("weights_C.txt", self_play_weights3, WEIGHT_COUNT, 0);
-    is_comparing = 0;
+    is_comparing = 1;
     eval_function_by_color[0] = 2;
-    eval_function_by_color[1] = 2;
+    eval_function_by_color[1] = 3;
     srand(time(NULL)); // Seed the random number generator
     //add_new_set_and_estimate_elo("weights.txt", "weights_A.txt", 4, &ht);
     //find_pazzles("slightly_worse.txt", &ht);

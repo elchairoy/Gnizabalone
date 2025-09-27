@@ -12,7 +12,7 @@ EVALS_FILE = "evals.txt"
 DATA_FILE = "all_games_depth_2.csv"
 
 # Training hyperparameters
-I = 5         # TD horizon
+I = 10         # TD horizon
 LR = 0.01       # Learning rate
 LEN = 2_000_000 # Max dataset length
 
@@ -30,6 +30,18 @@ class FeatureEvaluator(nn.Module):
         x = torch.tanh(self.fc3(x))
         return x.squeeze(1)
 
+class OldFeatureEvaluator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(FEATURE_COUNT, 16, bias=False)
+        self.fc2 = nn.Linear(16, 4, bias=False)
+        self.fc3 = nn.Linear(4, 1, bias=False)
+
+    def forward(self, x):
+        x = torch.tanh(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
+        return x.squeeze(1)
 
 def load_model_weights_from_file(model, filename):
     with open(filename, 'r') as f:
@@ -122,11 +134,22 @@ def train_td_model(model_class=FeatureEvaluator,
                    val_fraction=0.05):
     X, y, weights = load_td_training_data(td_csv_file=evals_file, feature_count=FEATURE_COUNT)
 
+    # concatenate into one tensor (rows are samples)
+    combined = torch.cat([X, y.unsqueeze(1), weights.unsqueeze(1)], dim=1)
+
+    # get unique rows
+    unique_combined = torch.unique(combined, dim=0, return_inverse=False, return_counts=False)
+
+    # split back
+    X = unique_combined[:, :FEATURE_COUNT]
+    y = unique_combined[:, FEATURE_COUNT]
+    weights = unique_combined[:, FEATURE_COUNT + 1]
+
     # Train/validation split
     n_val = max(1, int(len(X) * val_fraction))
 
     # Take a contiguous chunk from the end (or start) of the dataset
-    val_indices = torch.arange(0, n_val)
+    val_indices = torch.arange(len(X) - n_val, len(X))
     train_mask = torch.ones(len(X), dtype=torch.bool)
     train_mask[val_indices] = False
 
@@ -215,7 +238,7 @@ def generate_evals_file(model_class=FeatureEvaluator,
 def selfplay_training_loop():
     generate_evals_file()
     for i in range(4):  # two-phase LR schedule
-        lr = 0.01 if i < 3 else 0.001
+        lr = 0.01 if i < 1 else 0.001
         train_td_model(model_class=FeatureEvaluator,
                        evals_file=EVALS_FILE,
                        epochs=30,
@@ -238,7 +261,7 @@ def run_engine_command(engine_path, command):
     return result.stdout.decode(errors="ignore")
 
 # --- New helper for selfplay with optional delay ---
-def run_selfplay_delayed(engine_path, delay_seconds=1):
+def run_selfplay_delayed(engine_path, delay_seconds=2):
     time.sleep(delay_seconds)  # stagger start
     return run_engine_command(engine_path, "selfplay\n")
 
@@ -253,7 +276,7 @@ def full_auto_training():
     WEIGHTS_A = "weights_A.txt"
     WEIGHTS_C = "weights_C.txt"
 
-    print("=== Starting self-play phase (10 parallel processes, staggered) ===")
+    '''print("=== Starting self-play phase (10 parallel processes, staggered) ===")
 
     delays = [i for i in range(10)]  # 0,1,2,...,9 seconds
     args = [(ENGINE_PATH, delay) for delay in delays]
@@ -262,7 +285,7 @@ def full_auto_training():
         results = list(executor.map(run_selfplay_with_args, args))
 
     for i, out in enumerate(results, 1):
-        print(f"[Selfplay {i}] {out.strip()}")
+        print(f"[Selfplay {i}] {out.strip()}")'''
 
     while True:
         is_changed = 0
