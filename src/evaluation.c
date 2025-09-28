@@ -367,8 +367,12 @@ double evaluate_nn1(board *b, char color) {
 double evaluate_nn2(board *b, char color) {
     double features[FEATURE_COUNT];
     get_features2(b, color, features);
-
-    return get_nn2_output(features, self_play_weights2);
+    double neg_features[FEATURE_COUNT];
+    for (int i = 0; i < FEATURE_COUNT; i++) {
+        neg_features[i] = -features[i];
+    }
+    neg_features[8] = features[8]; // total marbles lost is the same for both
+    return (get_nn2_output(features, self_play_weights2) - get_nn2_output(neg_features, self_play_weights2)) / 2.0;
 }
 
 double evaluate_nn3(board *b, char color) {
