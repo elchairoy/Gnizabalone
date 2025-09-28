@@ -569,9 +569,9 @@ void create_game(game *g, board *initial_position) {
     g->initial_position.hash = initial_position->hash;
 
     /* Default time control: */
-    g->tc.time_left[0] = 10;
+    g->tc.time_left[0] = 100;
     g->tc.time_left[1] = 100;
-    g->tc.increment[0] = 0;
+    g->tc.increment[0] = -1;
     g->tc.increment[1] = -1;
 }
 
