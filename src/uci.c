@@ -115,6 +115,8 @@ int player_move(game *the_game, const char *str)
     }
 }
 
+extern double max_duration;
+
 void print_pv(game *the_game, char depth, HashTable *ht) {
     // This uses the TT to collect the princple variation. 
     if (depth == 0)
@@ -122,6 +124,7 @@ void print_pv(game *the_game, char depth, HashTable *ht) {
     char color = the_game->current_position->whose_turn;
     move m;
     irreversible_move_info inf;
+    max_duration = -1;
     if (color == WHITE)
         m = get_best_move_white(the_game, depth, -200,
                                         200, ht).m;
@@ -161,6 +164,7 @@ int print_analysis(game *the_game, char depth, char k, HashTable *ht)
     if (depth < 6) { NULL_MOVE_REDUCTION = 2; MIN_NULL_MOVE = 2; }
     else { NULL_MOVE_REDUCTION = 3; MIN_NULL_MOVE = 2; }
 
+    max_duration = -1;
     if (the_board->whose_turn == WHITE) {
         actual_pvs = get_best_pvs_white(the_game, depth, -200, 200, ht, k, pv_results);
     } else {
@@ -221,7 +225,6 @@ double get_soft_bound(game *the_game) {
 char eval_function_by_color[2];
 char depth_by_color[2] = {6, 6};
 extern clock_t start_time;
-extern double max_duration;
 double bot_move(game *the_game, HashTable *ht, char logs)
 {
     board *the_board = the_game->current_position;
@@ -772,7 +775,7 @@ int main()
     eval_function_by_color[1] = 2;
     srand(time(NULL)); // Seed the random number generator
 
-     
+    
 	while(1) {
         is_game_on = uci_parse(the_game, is_game_on, &ht);
     }
