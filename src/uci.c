@@ -329,7 +329,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
+        if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
             printf("WHITE WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -353,7 +353,7 @@ int check_endgame(game *the_game)
             fflush(stdout);
             return 0;
         }
-        if (the_game->tc.time_left[0] <= 0 && the_game->tc.increment[0] != -1) {
+        if (the_game->tc.time_left[1] <= 0 && the_game->tc.increment[1] != -1) {
             printf("BLACK WON ON TIMEOUT\n");
             fflush(stdout);
             return 0;
@@ -694,7 +694,7 @@ char uci_parse(game *the_game, char is_game_on, HashTable *ht)
                 bot_move(the_game, ht,0);
                 printf("move number: %d\n", the_game->number_of_moves_in_game);
                 if (the_game->tc.increment[0] != -1)
-                    printf("White time left: %.2f seconds, Black time left: %.2f seconds\n", the_game->tc.time_left[0], the_game->tc.time_left[1]);
+                    printf("White time left: %.2f seconds, Black time left: %.2f seconds\n", the_game->tc.time_left[1], the_game->tc.time_left[0]);
                 if (!check_endgame(the_game)) {
                     is_game_on = 0;
                     break;
